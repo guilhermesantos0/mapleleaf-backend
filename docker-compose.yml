@@ -1,0 +1,17 @@
+services:
+  postgres_mapleleaf:
+    image: postgres:16
+    container_name: mapleleaf-postgres
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mapleleaf
+      TZ: America/Sao_Paulo
+    volumes:
+      - mapleleaf_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mapleleaf_pgdata:

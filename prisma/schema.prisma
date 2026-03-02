@@ -1,0 +1,201 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum UserRole {
+    ADMIN
+    EMPLOYEE
+    CLIENT
+}
+
+enum OrderStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    CANCELLED
+}
+
+enum BagSize {
+    MINI
+    SMALL
+    MEDIUM
+    LARGE
+}
+
+model User {
+    id        String   @id @default(uuid())
+    email     String   @unique
+    password  String
+    role      UserRole
+    
+    cpf       String?  @unique
+    phone     String?
+    
+    fullName  String?
+    
+    addresses Address[]
+    carts     Cart[]
+    orders    Order[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("users")
+}
+
+model Address {
+    id         String  @id @default(uuid())
+    userId     String
+    street     String
+    number     String
+    complement String?
+    district   String
+    city       String
+    state      String
+    zipCode    String
+    country    String  @default("Brazil")
+    isDefault  Boolean @default(false)
+    
+    user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    orders Order[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("addresses")
+}
+
+model Bag {
+    id          String   @id @default(uuid())
+    modelCode   String   @unique 
+    name        String   
+    description String   @db.Text
+    material    String   
+    size        BagSize
+    isPromotion Boolean  @default(false)
+    
+    price          Float
+    promotionPrice Float?
+    
+    stockQuantity Int @default(0)
+    
+    colors    BagColor[]
+    cartItems CartItem[]
+    orderItems OrderItem[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("bags")
+}
+
+model BagColor {
+    id       String @id @default(uuid())
+    bagId    String
+    colorName String 
+    hexCode  String? 
+    
+    bag    Bag     @relation(fields: [bagId], references: [id], onDelete: Cascade)
+    images Image[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@unique([bagId, colorName])
+    @@map("bag_colors")
+}
+
+model Image {
+    id          String @id @default(uuid())
+    bagColorId  String
+    url         String
+    altText     String?
+    displayOrder Int    @default(0)
+    
+    bagColor BagColor @relation(fields: [bagColorId], references: [id], onDelete: Cascade)
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("images")
+}
+
+model Cart {
+    id     String @id @default(uuid())
+    userId String @unique
+    
+    user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    items CartItem[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("carts")
+}
+
+model CartItem {
+    id          String @id @default(uuid())
+    cartId      String
+    bagId       String
+    quantity    Int    @default(1)
+    selectedColor String 
+    
+    cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+    bag  Bag  @relation(fields: [bagId], references: [id])
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@unique([cartId, bagId, selectedColor])
+    @@map("cart_items")
+}
+
+model Order {
+    id          String      @id @default(uuid())
+    userId      String
+    addressId   String
+    orderNumber String      @unique
+    status      OrderStatus @default(PENDING)
+    
+    subtotal       Float
+    shippingCost   Float
+    discount       Float   @default(0)
+    totalAmount    Float
+    
+    paymentMethod  String?
+    paymentStatus  String?
+    
+    completedAt    DateTime?
+    completedBy    String? 
+    
+    user    User        @relation(fields: [userId], references: [id])
+    address Address     @relation(fields: [addressId], references: [id])
+    items   OrderItem[]
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("orders")
+}
+
+model OrderItem {
+    id            String @id @default(uuid())
+    orderId       String
+    bagId         String
+    quantity      Int
+    selectedColor String
+    unitPrice     Float
+    subtotal      Float
+    
+    order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    bag   Bag   @relation(fields: [bagId], references: [id])
+    
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("order_items")
+}
