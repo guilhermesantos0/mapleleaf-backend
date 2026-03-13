@@ -15,19 +15,19 @@ type SelectedAddress = {
 type SelectedOrder = {
   orderNumber: string;
   status: OrderStatus;
-  subtotal: number;
-  shippingCost: number;
-  discount: number;
-  totalAmount: number;
+  subtotal: any;
+  shippingCost: any;
+  discount: any;
+  totalAmount: any;
   paymentMethod: string | null;
   address: SelectedAddress;
-  trackingCode: string;
+  trackingCode: string | null;
 };
 
 type SelectedCartItem = {
   id: string;
   quantity: number;
-  selectedColor: string;
+  bagColor: { id: string; colorName: string };
   bag: { id: string; name: string };
 };
 

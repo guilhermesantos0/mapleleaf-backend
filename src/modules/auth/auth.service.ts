@@ -114,13 +114,17 @@ export class AuthService {
         return await this.toSafeUserObject(user);
     }
 
-    async refreshToken(refreshToken: string): Promise<LoginResponse> {
-        const token = await this.prisma.refreshToken.findUnique({
-            where: { token: refreshToken },
+    async refreshToken(refreshToken: string, userId: string): Promise<LoginResponse> {
+
+        const token = await this.prisma.refreshToken.findFirst({
+            where: { userId },
             include: { user: true },
         });
 
         if (!token) throw new UnauthorizedException('Invalid refresh token');
+
+        const isTokenValid = await argon2.verify(token.token, refreshToken);
+        if (!isTokenValid) throw new UnauthorizedException('Invalid refresh token');
 
         if (token.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
 

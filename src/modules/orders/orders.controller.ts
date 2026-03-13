@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt/jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { UserRole } from '@prisma/client';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/common/decorators/user.decorator';
 
 @Controller('orders')
 export class OrdersController {
@@ -14,6 +15,12 @@ export class OrdersController {
     @Get()
     async getOrders(@Query() query: any) {
         return this.ordersService.getOrders(query);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('me')
+    async getMyOrders(@User() user: any) {
+        return this.ordersService.getOrdersByUserId(user.id);
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)

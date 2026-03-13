@@ -51,8 +51,10 @@ export class AuthController {
         return { message: 'User registered successfully', user };
     }
 
+    @UseGuards(JwtAuthGuard)
     @Post('refresh')
     async refresh(
+        @User() currentUser: UserResponse,
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
     ) {
@@ -60,7 +62,7 @@ export class AuthController {
 
         if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
 
-        const { accessToken, refreshToken: newRefreshToken, user } = await this.authService.refreshToken(refreshToken);
+        const { accessToken, refreshToken: newRefreshToken, user } = await this.authService.refreshToken(refreshToken, currentUser.id);
 
         const isProd = this.configService.get<string>('NODE_ENV') === 'production';
         const sameSite = isProd ? 'none' : 'lax';

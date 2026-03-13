@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderObjectResponse } from './types/order-response.type';
-import { OrderStatus } from '@prisma/client';
+import { CartStatus, OrderStatus } from '@prisma/client';
+import { sumBy } from 'lodash';
 
 type AdminGetOrdersResponse = {
     data: OrderObjectResponse[]; 
@@ -17,7 +18,7 @@ export class OrdersService {
     async getOrders(filters: any): Promise<AdminGetOrdersResponse> {
         const { page = 1, limit = 20, ...rest } = filters;
         const skip = (page - 1) * limit;
-
+        
         const carts = await this.prisma.cart.findMany({
             skip,
             take: limit,
@@ -27,7 +28,6 @@ export class OrdersService {
             },
             select: {
                 id: true,
-                totalItems: true,
                 status: true,
                 user: {
                     select: {
@@ -42,7 +42,12 @@ export class OrdersService {
                     select: {
                         id: true,
                         quantity: true,
-                        selectedColor: true,
+                        bagColor: {
+                            select: {
+                                id: true,
+                                colorName: true,
+                            }
+                        },
                         bag: {
                             select: {
                                 id: true,
@@ -87,7 +92,7 @@ export class OrdersService {
             data: carts.map((cart) => ({
                 id: cart.id,
                 order: cart.orders[0],
-                totalItems: cart.totalItems,
+                totalItems: sumBy(cart.items, 'quantity'),
                 status: cart.status,
                 cartItems: cart.items,
                 user: cart.user,
@@ -99,11 +104,15 @@ export class OrdersService {
     }
 
     async getOrderById(id: string): Promise<OrderObjectResponse> {
+
+        const totalItems = await this.prisma.cartItem.count({
+            where: { cartId: id },
+        });
+
         const cart = await this.prisma.cart.findUnique({
             where: { id },
             select: {
                 id: true,
-                totalItems: true,
                 status: true,
                 user: {
                     select: {
@@ -118,7 +127,12 @@ export class OrdersService {
                     select: {
                         id: true,
                         quantity: true,
-                        selectedColor: true,
+                        bagColor: {
+                            select: {
+                                id: true,
+                                colorName: true,
+                            }
+                        },
                         bag: {
                             select: {
                                 id: true,
@@ -162,7 +176,7 @@ export class OrdersService {
         return {
             id: cart.id,
             order: cart.orders[0],
-            totalItems: cart.totalItems,
+            totalItems,
             status: cart.status,
             cartItems: cart.items,
             user: cart.user,
@@ -189,5 +203,74 @@ export class OrdersService {
         })
 
         return order;
+    }
+
+    async getOrdersByUserId(userId: string): Promise<any> {
+        const carts = await this.prisma.cart.findMany({
+            where: { userId, status: CartStatus.CHECKED_OUT },
+            select: {
+                id: true,
+                status: true,
+                items: {
+                    select: {
+                        id: true,
+                        quantity: true,
+                        bagColor: {
+                            select: {
+                                id: true,
+                                colorName: true,
+                                hexCode: true,
+                                stockQuantity: true,
+                            }
+                        },
+                        bag: {
+                            select: {
+                                id: true,
+                                name: true,
+                                modelCode: true,
+                                description: true,
+                                material: true,
+                                size: true,
+                                price: true,
+                                promotionPrice: true,
+                                isPromotion: true,
+                            }
+                        },
+                    }
+                },
+                orders: {
+                    select: {
+                        id: true,
+                        status: true,
+                        orderNumber: true,
+                        subtotal: true,
+                        shippingCost: true,
+                        discount: true,
+                        totalAmount: true,
+                        paymentMethod: true,
+                        paymentStatus: true,
+                        completedAt: true,
+                    }
+                },
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        role: true,
+                        phone: true,
+                        name: true
+                    }
+                }
+            }
+        });
+
+        return carts.map((cart) => ({
+            id: cart.id,
+            order: cart.orders[0],
+            totalItems: sumBy(cart.items, 'quantity'),
+            status: cart.status,
+            cartItems: cart.items,
+            user: cart.user,
+        }));
     }
 }
