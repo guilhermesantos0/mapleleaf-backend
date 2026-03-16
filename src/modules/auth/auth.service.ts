@@ -82,15 +82,22 @@ export class AuthService {
             }
         })
 
-        return token;
+        return `${userId}.${token}`;
     }
 
     async login(loginDto: LoginDto): Promise<LoginResponse> {
         const user = await this.validateUser(loginDto.email, loginDto.password);
 
+        const oldRefreshToken = await this.prisma.refreshToken.findFirst({
+            where: { userId: user.id },
+        });
+
+        if (oldRefreshToken) await this.prisma.refreshToken.delete({ where: { id: oldRefreshToken.id } });
+
         const payload = { sub: user.id, email: user.email };
         const accessToken = await this.jwtService.signAsync(payload, { expiresIn: '15m' });
         const refreshToken = await this.generateRefreshToken(user.id);
+
 
         return { accessToken, refreshToken, user };
     }
@@ -114,7 +121,12 @@ export class AuthService {
         return await this.toSafeUserObject(user);
     }
 
-    async refreshToken(refreshToken: string, userId: string): Promise<LoginResponse> {
+    async refreshToken(compositeToken: string): Promise<LoginResponse> {
+        const separatorIndex = compositeToken.indexOf('.');
+        if (separatorIndex === -1) throw new UnauthorizedException('Invalid refresh token');
+
+        const userId = compositeToken.substring(0, separatorIndex);
+        const rawToken = compositeToken.substring(separatorIndex + 1);
 
         const token = await this.prisma.refreshToken.findFirst({
             where: { userId },
@@ -123,7 +135,7 @@ export class AuthService {
 
         if (!token) throw new UnauthorizedException('Invalid refresh token');
 
-        const isTokenValid = await argon2.verify(token.token, refreshToken);
+        const isTokenValid = await argon2.verify(token.token, rawToken);
         if (!isTokenValid) throw new UnauthorizedException('Invalid refresh token');
 
         if (token.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
