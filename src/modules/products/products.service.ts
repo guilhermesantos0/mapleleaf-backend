@@ -160,7 +160,11 @@ export class ProductsService {
         };
     }
 
-    async findOne(id: string) {
+    private productsCacheKey(id: string): string {
+        return `product:${id}`;
+    }
+
+    private async fetchProduct(id: string) {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
@@ -170,9 +174,18 @@ export class ProductsService {
             },
         });
 
-        if (!product) throw new NotFoundException('Product not found');
-
         return product;
+    }
+
+    async findOne(id: string) {
+        const ttl = this.configService.get<number>('CACHE_TTL_MS', 60_000);
+        const cacheKey = this.productsCacheKey(id);
+
+        return this.cacheManager.wrap(
+            cacheKey,
+            () => this.fetchProduct(id),
+            ttl,
+        );
     }
 
     async update(id: string, updateProductDto: UpdateProductDto, files: Express.Multer.File[]) {

@@ -8,6 +8,11 @@ import { User, UserRole } from '@prisma/client';
 import { UserResponse } from './types/user_response.type';
 import { CreateUserDto } from './dto/create-user.dto';
 
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
 type SafeUser = {
     id: string;
     email: string;
@@ -30,6 +35,8 @@ export class AuthService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
+        private readonly configService: ConfigService,
+        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     ) {}
 
     private async toSafeUserObject(user: User): Promise<SafeUser> {
@@ -243,7 +250,11 @@ export class AuthService {
 
     }
 
-    async me(userId: string): Promise<UserResponse> {
+    private usersCacheKey(userId: string): string {
+        return `user:${userId}`;
+    }
+
+    private async fetchUser(userId: string): Promise<UserResponse> {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
         });
@@ -251,5 +262,16 @@ export class AuthService {
         if (!user) throw new UnauthorizedException('User not found');
 
         return await this.toResponseUserObject(user);
+    }
+
+    async me(userId: string): Promise<UserResponse> {
+        const ttl = this.configService.get<number>('CACHE_TTL_MS', 60_000);
+        const cacheKey = this.usersCacheKey(userId);
+
+        return this.cacheManager.wrap(
+            cacheKey,
+            () => this.fetchUser(userId),
+            ttl,
+        );
     }
 }
