@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole } from '@prisma/client';
+import { OrderStatus, ProductCategory, UserRole } from '@prisma/client';
 
 type SelectedAddress = {
   id: string;
@@ -27,8 +27,8 @@ type SelectedOrder = {
 type SelectedCartItem = {
   id: string;
   quantity: number;
-  bagColor: { id: string; colorName: string };
-  bag: { id: string; name: string };
+  productColor: { id: string; colorName: string };
+  product: { id: string; name: string; category: ProductCategory };
 };
 
 type SelectedUser = {

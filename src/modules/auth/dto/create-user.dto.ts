@@ -1,5 +1,6 @@
-import { IsEmail, IsNotEmpty, IsPhoneNumber, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsEnum, Matches, MaxLength, MinLength } from "class-validator";
 import { Transform } from "class-transformer";
+import { UserRole } from "@prisma/client";
 
 export class CreateUserDto {
     @IsEmail({}, { message: 'Invalid email' })
@@ -23,4 +24,8 @@ export class CreateUserDto {
     @MinLength(3, { message: 'Name must be at least 3 characters long' })
     @MaxLength(100, { message: 'Name must be less than 100 characters long' })
     name: string;
+
+    @IsOptional()
+    @IsEnum(UserRole, { message: 'Invalid role' })
+    role?: UserRole = UserRole.CLIENT;
 }

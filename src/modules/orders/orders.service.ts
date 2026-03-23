@@ -42,16 +42,17 @@ export class OrdersService {
                     select: {
                         id: true,
                         quantity: true,
-                        bagColor: {
+                        productColor: {
                             select: {
                                 id: true,
                                 colorName: true,
                             }
                         },
-                        bag: {
+                        product: {
                             select: {
                                 id: true,
                                 name: true,
+                                category: true,
                             }
                         }
                     }
@@ -127,16 +128,17 @@ export class OrdersService {
                     select: {
                         id: true,
                         quantity: true,
-                        bagColor: {
+                        productColor: {
                             select: {
                                 id: true,
                                 colorName: true,
                             }
                         },
-                        bag: {
+                        product: {
                             select: {
                                 id: true,
                                 name: true,
+                                category: true,
                             }
                         }
                     }
@@ -215,7 +217,7 @@ export class OrdersService {
                     select: {
                         id: true,
                         quantity: true,
-                        bagColor: {
+                        productColor: {
                             select: {
                                 id: true,
                                 colorName: true,
@@ -223,17 +225,18 @@ export class OrdersService {
                                 stockQuantity: true,
                             }
                         },
-                        bag: {
+                        product: {
                             select: {
                                 id: true,
                                 name: true,
+                                category: true,
                                 modelCode: true,
                                 description: true,
                                 material: true,
-                                size: true,
                                 price: true,
                                 promotionPrice: true,
                                 isPromotion: true,
+                                bagDetails: true,
                             }
                         },
                     }

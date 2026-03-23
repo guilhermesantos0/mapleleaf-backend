@@ -28,8 +28,8 @@ export class CartsService {
         const existingCartItem = await this.prisma.cartItem.findFirst({
             where: {
                 cartId: cart.id,
-                bagId: createCartDto.bagId,
-                bagColorId: createCartDto.bagColorId,
+                productId: createCartDto.productId,
+                productColorId: createCartDto.productColorId,
             },
         });
         
@@ -42,8 +42,8 @@ export class CartsService {
             await this.prisma.cartItem.create({
                 data: { 
                     cartId: cart.id, 
-                    bagId: createCartDto.bagId, 
-                    bagColorId: createCartDto.bagColorId, 
+                    productId: createCartDto.productId, 
+                    productColorId: createCartDto.productColorId, 
                     quantity: createCartDto.quantity || 1 
                 },
             });
@@ -117,16 +117,17 @@ export class CartsService {
                     select: {
                         id: true,
                         quantity: true,
-                        bagColor: {
+                        productColor: {
                             select: {
                                 id: true,
                                 colorName: true,
                             },
                         },
-                        bag: {
+                        product: {
                             select: {
                                 id: true,
                                 name: true,
+                                category: true,
                             },
                         },
                     }

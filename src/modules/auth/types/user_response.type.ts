@@ -5,4 +5,5 @@ export type UserResponse = {
     email: string;
     name: string;
     role: UserRole;
+    emailVerifiedAt: Date | null;
 }

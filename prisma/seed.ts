@@ -3,8 +3,9 @@ import {
   PrismaClient,
   UserRole,
   OrderStatus,
-  BagSize,
+  ProductSize,
   CartStatus,
+  ProductCategory,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -21,8 +22,8 @@ async function main() {
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.image.deleteMany();
-  await prisma.bagColor.deleteMany();
-  await prisma.bag.deleteMany();
+  await prisma.productColor.deleteMany();
+  await prisma.product.deleteMany();
   await prisma.address.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
@@ -37,6 +38,7 @@ async function main() {
       password: hashedPassword,
       role: UserRole.ADMIN,
       name: 'Admin',
+      emailVerifiedAt: new Date('2026-01-15'),
     },
   });
 
@@ -58,6 +60,7 @@ async function main() {
       name: 'Ana Costa',
       cpf: '12345678900',
       phone: '11988887777',
+      emailVerifiedAt: new Date('2026-02-10'),
     },
   });
 
@@ -145,17 +148,19 @@ async function main() {
 
   console.log('Addresses created');
 
-  // ── Bags (BagSize: MINI, SMALL, MEDIUM, LARGE) ──────────────────
-  // Bag → BagColor → Image (nested relations)
+  // ── Products (ProductCategory: BAG, WALLET, BACKPACK) ───────────
+  // Product → ProductColor → Image (nested relations)
+  // Product → BagDetails (for bags)
 
-  const bagMedium = await prisma.bag.create({
+  const bagMedium = await prisma.product.create({
     data: {
+      category: ProductCategory.BAG,
       modelCode: 'CHN-001',
       name: 'Bolsa Elegance',
       description:
         'Bolsa de mão sofisticada, perfeita para eventos formais. Acabamento premium com detalhes dourados.',
       material: 'Couro Sintético',
-      size: BagSize.MEDIUM,
+      size: ProductSize.MEDIUM,
       price: 299.9,
       colors: {
         create: [
@@ -198,14 +203,15 @@ async function main() {
     include: { colors: true },
   });
 
-  const bagLarge = await prisma.bag.create({
+  const bagLarge = await prisma.product.create({
     data: {
+      category: ProductCategory.BAG,
       modelCode: 'CHN-002',
       name: 'Bolsa Urban',
       description:
         'Bolsa casual para o dia a dia. Design moderno com compartimentos práticos e alça ajustável.',
       material: 'Nylon Impermeável',
-      size: BagSize.LARGE,
+      size: ProductSize.LARGE,
       price: 189.9,
       isPromotion: true,
       promotionPrice: 149.9,
@@ -259,14 +265,15 @@ async function main() {
     include: { colors: true },
   });
 
-  const bagMini = await prisma.bag.create({
+  const bagMini = await prisma.product.create({
     data: {
+      category: ProductCategory.BAG,
       modelCode: 'CHN-003',
       name: 'Mini Bag Charm',
       description:
         'Mini bolsa charmosa para sair à noite. Acompanha corrente dourada removível.',
       material: 'Couro Legítimo',
-      size: BagSize.MINI,
+      size: ProductSize.MINI,
       price: 399.9,
       colors: {
         create: [
@@ -304,14 +311,15 @@ async function main() {
     include: { colors: true },
   });
 
-  const bagLarge2 = await prisma.bag.create({
+  const bagLarge2 = await prisma.product.create({
     data: {
+      category: ProductCategory.BAG,
       modelCode: 'CHN-004',
       name: 'Bolsa Work',
       description:
         'Bolsa executiva com espaço para notebook de até 15". Ideal para o ambiente profissional.',
       material: 'Couro Sintético Premium',
-      size: BagSize.LARGE,
+      size: ProductSize.LARGE,
       price: 349.9,
       isPromotion: true,
       promotionPrice: 279.9,
@@ -351,14 +359,15 @@ async function main() {
     include: { colors: true },
   });
 
-  const bagSmall = await prisma.bag.create({
+  const bagSmall = await prisma.product.create({
     data: {
+      category: ProductCategory.BAG,
       modelCode: 'CHN-005',
       name: 'Clutch Festa',
       description:
         'Clutch brilhante para festas e ocasiões especiais. Fecho magnético com acabamento em strass.',
       material: 'Cetim com Strass',
-      size: BagSize.SMALL,
+      size: ProductSize.SMALL,
       price: 199.9,
       colors: {
         create: [
@@ -396,7 +405,7 @@ async function main() {
     include: { colors: true },
   });
 
-  console.log('Bags with colors and images created');
+  console.log('Products with colors and images created');
 
   const color = (
     bag: { colors: { colorName: string; id: string }[] },
@@ -404,7 +413,7 @@ async function main() {
   ) => bag.colors.find((c) => c.colorName === name)!;
 
   // ── Carts (CartStatus: ACTIVE, CHECKED_OUT) ─────────────────────
-  // Cart → CartItem → Bag + BagColor
+  // Cart → CartItem → Product + ProductColor
 
   const activeCart = await prisma.cart.create({
     data: {
@@ -413,13 +422,13 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagMedium.id,
-            bagColorId: color(bagMedium, 'Preto').id,
+            productId: bagMedium.id,
+            productColorId: color(bagMedium, 'Preto').id,
             quantity: 1,
           },
           {
-            bagId: bagLarge.id,
-            bagColorId: color(bagLarge, 'Azul Marinho').id,
+            productId: bagLarge.id,
+            productColorId: color(bagLarge, 'Azul Marinho').id,
             quantity: 2,
           },
         ],
@@ -434,13 +443,13 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagLarge.id,
-            bagColorId: color(bagLarge, 'Cinza').id,
+            productId: bagLarge.id,
+            productColorId: color(bagLarge, 'Cinza').id,
             quantity: 1,
           },
           {
-            bagId: bagMini.id,
-            bagColorId: color(bagMini, 'Rosa').id,
+            productId: bagMini.id,
+            productColorId: color(bagMini, 'Rosa').id,
             quantity: 1,
           },
         ],
@@ -471,7 +480,7 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagMedium.id,
+            productId: bagMedium.id,
             quantity: 2,
             selectedColor: 'Preto',
             unitPrice: 299.9,
@@ -499,14 +508,14 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagLarge.id,
+            productId: bagLarge.id,
             quantity: 1,
             selectedColor: 'Cinza',
             unitPrice: 149.9,
             subtotal: 149.9,
           },
           {
-            bagId: bagMini.id,
+            productId: bagMini.id,
             quantity: 1,
             selectedColor: 'Rosa',
             unitPrice: 399.9,
@@ -532,7 +541,7 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagLarge2.id,
+            productId: bagLarge2.id,
             quantity: 1,
             selectedColor: 'Caramelo',
             unitPrice: 279.9,
@@ -558,7 +567,7 @@ async function main() {
       items: {
         create: [
           {
-            bagId: bagSmall.id,
+            productId: bagSmall.id,
             quantity: 1,
             selectedColor: 'Prata',
             unitPrice: 199.9,

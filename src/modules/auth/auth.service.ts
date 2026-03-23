@@ -51,6 +51,7 @@ export class AuthService {
             email: user.email,
             name: user.name || 'Unknown',
             role: user.role,
+            emailVerifiedAt: user.emailVerifiedAt || null,
         }
     }
 
@@ -85,8 +86,30 @@ export class AuthService {
         return `${userId}.${token}`;
     }
 
+    private async generateEmailVerificationToken(userId: string): Promise<{ token: string; expiresAt: Date; sentAt: Date }> {
+        const token = randomBytes(64).toString('hex');
+        const hashedToken = await argon2.hash(token);
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        const sentAt = new Date();
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                emailVerificationToken: hashedToken,
+                emailVerificationTokenExpiresAt: expiresAt,
+                emailVerificationTokenSentAt: sentAt,
+            }
+        });
+
+        return { token, expiresAt, sentAt };
+    }
+
     async login(loginDto: LoginDto): Promise<LoginResponse> {
         const user = await this.validateUser(loginDto.email, loginDto.password);
+
+        if (!user) throw new UnauthorizedException('Invalid credentials');
+
+        if (!user.emailVerifiedAt) throw new UnauthorizedException('Email not verified');
 
         const oldRefreshToken = await this.prisma.refreshToken.findFirst({
             where: { userId: user.id },
@@ -118,6 +141,17 @@ export class AuthService {
             },
         });
         
+        const { token, expiresAt, sentAt } = await this.generateEmailVerificationToken(user.id);
+
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+                emailVerificationToken: token,
+                emailVerificationTokenExpiresAt: expiresAt,
+                emailVerificationTokenSentAt: sentAt,
+            }
+        });
+
         return await this.toSafeUserObject(user);
     }
 
@@ -157,5 +191,65 @@ export class AuthService {
         await this.prisma.refreshToken.deleteMany({
             where: { userId },
         });
+    }
+
+    async verifyEmail(userId: string): Promise<void> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) throw new UnauthorizedException('User not found');
+
+        if (user.emailVerifiedAt) throw new ConflictException('Email already verified');
+
+        if (user.emailVerificationToken && user.emailVerificationTokenExpiresAt && user.emailVerificationTokenExpiresAt > new Date()) {
+            const isTokenValid = await argon2.verify(user.emailVerificationToken, user.emailVerificationToken);
+            if (!isTokenValid) throw new UnauthorizedException('Invalid email verification token');
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { emailVerifiedAt: new Date() },
+        });
+    }
+
+    async resendEmailVerification(userId: string): Promise<any> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) throw new UnauthorizedException('User not found');
+
+        if (user.emailVerifiedAt) throw new ConflictException('Email already verified');
+
+        if (user.emailVerificationTokenExpiresAt && user.emailVerificationTokenExpiresAt < new Date()) {
+            const { token, expiresAt, sentAt } = await this.generateEmailVerificationToken(userId);
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: {
+                    emailVerificationToken: token,
+                    emailVerificationTokenExpiresAt: expiresAt,
+                    emailVerificationTokenSentAt: sentAt,
+                }
+            });
+
+            // funcao de mandar email
+            return { message: 'Email verification token resent' };
+        } else {
+            // funcao de mandar email
+            return { message: 'Email verification token already sent' };
+        };
+
+
+    }
+
+    async me(userId: string): Promise<UserResponse> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) throw new UnauthorizedException('User not found');
+
+        return await this.toResponseUserObject(user);
     }
 }

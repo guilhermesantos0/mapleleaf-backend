@@ -1,0 +1,66 @@
+### Create Product (multipart/form-data)
+POST http://localhost:3000/products HTTP/1.1
+Content-Type: multipart/form-data; boundary=----FormBoundary
+
+------FormBoundary
+Content-Disposition: form-data; name="category"
+
+BAG
+------FormBoundary
+Content-Disposition: form-data; name="modelCode"
+
+CHN-010
+------FormBoundary
+Content-Disposition: form-data; name="name"
+
+Bolsa Teste
+------FormBoundary
+Content-Disposition: form-data; name="description"
+
+Bolsa de teste para validar o endpoint de criação de produtos.
+------FormBoundary
+Content-Disposition: form-data; name="material"
+
+Couro Sintético
+------FormBoundary
+Content-Disposition: form-data; name="size"
+
+MEDIUM
+------FormBoundary
+Content-Disposition: form-data; name="price"
+
+299.90
+------FormBoundary
+Content-Disposition: form-data; name="isPromotion"
+
+true
+------FormBoundary
+Content-Disposition: form-data; name="promotionPrice"
+
+249.90
+------FormBoundary
+Content-Disposition: form-data; name="colors"
+
+[{"colorName":"Preto","hexCode":"#000000","stockQuantity":25},{"colorName":"Vermelho","hexCode":"#C41E3A","stockQuantity":15}]
+------FormBoundary
+Content-Disposition: form-data; name="colors[0][images]"; filename="bolsa_preto_frente.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/sample1.jpg
+------FormBoundary
+Content-Disposition: form-data; name="colors[0][images]"; filename="bolsa_preto_lateral.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/sample2.jpg
+------FormBoundary
+Content-Disposition: form-data; name="colors[1][images]"; filename="bolsa_vermelho_frente.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/sample3.jpg
+------FormBoundary--
+
+### Get All Products
+GET http://localhost:3000/products HTTP/1.1
+
+### Get Product By ID
+GET http://localhost:3000/products/{{productId}} HTTP/1.1

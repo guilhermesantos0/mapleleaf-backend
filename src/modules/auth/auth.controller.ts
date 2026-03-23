@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
@@ -99,5 +99,23 @@ export class AuthController {
         res.clearCookie('refresh_token');
 
         return { message: 'Logout successful' };
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('verify-email')
+    async verifyEmail(@User() user: UserResponse) {
+        return this.authService.verifyEmail(user.id);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('resend-email-verification')
+    async resendEmailVerification(@User() user: UserResponse) {
+        return this.authService.resendEmailVerification(user.id);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('me')
+    async me(@User() user: UserResponse) {
+        return { message: 'User retrieved successfully', user };
     }
 }
