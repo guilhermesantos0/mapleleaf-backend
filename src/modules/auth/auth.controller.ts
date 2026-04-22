@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    Post,
+    Req,
+    Res,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
@@ -21,9 +29,11 @@ export class AuthController {
         @Body() loginDto: LoginDto,
         @Res({ passthrough: true }) res: Response,
     ) {
-        const { accessToken, refreshToken, user } = await this.authService.login(loginDto);
+        const { accessToken, refreshToken, user } =
+            await this.authService.login(loginDto);
 
-        const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+        const isProd =
+            this.configService.get<string>('NODE_ENV') === 'production';
         const sameSite = isProd ? 'none' : 'lax';
 
         res.cookie('access_token', accessToken, {
@@ -40,15 +50,13 @@ export class AuthController {
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
-        return { message: 'Login successful', user };
+        return { message: 'Login realizado com sucesso', user };
     }
 
     @Post('register')
-    async register(
-        @Body() createUserDto: CreateUserDto,
-    ) {
+    async register(@Body() createUserDto: CreateUserDto) {
         const user = await this.authService.register(createUserDto);
-        return { message: 'User registered successfully', user };
+        return { message: 'Usuário cadastrado com sucesso', user };
     }
 
     @Post('refresh')
@@ -58,11 +66,19 @@ export class AuthController {
     ) {
         const refreshToken = req.cookies.refresh_token;
 
-        if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
+        if (!refreshToken)
+            throw new UnauthorizedException(
+                'Token de atualização não encontrado',
+            );
 
-        const { accessToken, refreshToken: newRefreshToken, user } = await this.authService.refreshToken(refreshToken);
+        const {
+            accessToken,
+            refreshToken: newRefreshToken,
+            user,
+        } = await this.authService.refreshToken(refreshToken);
 
-        const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+        const isProd =
+            this.configService.get<string>('NODE_ENV') === 'production';
         const sameSite = isProd ? 'none' : 'lax';
 
         res.cookie('access_token', accessToken, {
@@ -77,9 +93,9 @@ export class AuthController {
             secure: isProd,
             sameSite,
             maxAge: 7 * 24 * 60 * 60 * 1000,
-        })
+        });
 
-        return { message: 'Token refreshed', user };
+        return { message: 'Token atualizado', user };
     }
 
     @UseGuards(JwtAuthGuard)
@@ -91,14 +107,17 @@ export class AuthController {
     ) {
         const refreshToken = req.cookies.refresh_token;
 
-        if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
+        if (!refreshToken)
+            throw new UnauthorizedException(
+                'Token de atualização não encontrado',
+            );
 
         await this.authService.logout(user.id);
 
         res.clearCookie('access_token');
         res.clearCookie('refresh_token');
 
-        return { message: 'Logout successful' };
+        return { message: 'Logout realizado com sucesso' };
     }
 
     @UseGuards(JwtAuthGuard)
@@ -116,6 +135,6 @@ export class AuthController {
     @UseGuards(JwtAuthGuard)
     @Get('me')
     async me(@User() user: UserResponse) {
-        return { message: 'User retrieved successfully', user };
+        return { message: 'Usuário obtido com sucesso', user };
     }
 }

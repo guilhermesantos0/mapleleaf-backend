@@ -1,14 +1,35 @@
-import { Controller, Delete, Get, Param, Patch, Query, UseGuards, Body, Post } from '@nestjs/common';
+import {
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Query,
+    UseGuards,
+    Body,
+    Post,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt/jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { UserRole } from '@prisma/client';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/common/decorators/user.decorator';
+import { CheckoutDto } from './dto/checkout.dto';
 
 @Controller('orders')
 export class OrdersController {
     constructor(private readonly ordersService: OrdersService) {}
+
+    @UseGuards(JwtAuthGuard)
+    @Post('checkout')
+    async checkout(@User() user: any, @Body() body: CheckoutDto) {
+        return this.ordersService.checkout(
+            user.id,
+            body.addressId,
+            body.shippingServiceId,
+        );
+    }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)

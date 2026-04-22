@@ -13,7 +13,10 @@ import { createKeyv } from '@keyv/redis';
             isGlobal: true,
             imports: [ConfigModule],
             useFactory: (configService: ConfigService) => {
-                const redisUrl = configService.get<string>('REDIS_URL', 'redis://127.0.0.1:6379');
+                const redisUrl = configService.get<string>(
+                    'REDIS_URL',
+                    'redis://127.0.0.1:6379',
+                );
                 const ttl = configService.get<number>('CACHE_TTL_MS', 60_000);
 
                 return {

@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserRole } from '@prisma/client';
 
 export type UserResponse = {
     id: string;
@@ -6,4 +6,4 @@ export type UserResponse = {
     name: string;
     role: UserRole;
     emailVerifiedAt: Date | null;
-}
+};

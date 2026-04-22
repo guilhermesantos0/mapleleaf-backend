@@ -6,12 +6,12 @@ import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
-    
+
     const config = app.get(ConfigService);
     const clientUrl = config.get<string>('FRONTEND_URL');
 
     app.setGlobalPrefix('api');
-    
+
     app.enableCors({
         origin: clientUrl,
         credentials: true,
@@ -22,7 +22,7 @@ async function bootstrap() {
             whitelist: true,
             forbidNonWhitelisted: true,
             transform: true,
-        })
+        }),
     );
 
     app.use(cookieParser());

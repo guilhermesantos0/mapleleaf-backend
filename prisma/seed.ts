@@ -6,6 +6,9 @@ import {
   ProductSize,
   CartStatus,
   ProductCategory,
+  PaymentProvider,
+  PaymentStatus,
+  PaymentType,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -21,8 +24,11 @@ async function main() {
   await prisma.order.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
+  await prisma.paymentAttempt.deleteMany();
   await prisma.image.deleteMany();
   await prisma.productColor.deleteMany();
+  await prisma.backpackDetails.deleteMany();
+  await prisma.bagDetails.deleteMany();
   await prisma.product.deleteMany();
   await prisma.address.deleteMany();
   await prisma.refreshToken.deleteMany();
@@ -162,6 +168,7 @@ async function main() {
       material: 'Couro Sintético',
       size: ProductSize.MEDIUM,
       price: 299.9,
+      bagDetails: { create: {} },
       colors: {
         create: [
           {
@@ -215,6 +222,7 @@ async function main() {
       price: 189.9,
       isPromotion: true,
       promotionPrice: 149.9,
+      bagDetails: { create: {} },
       colors: {
         create: [
           {
@@ -275,6 +283,7 @@ async function main() {
       material: 'Couro Legítimo',
       size: ProductSize.MINI,
       price: 399.9,
+      bagDetails: { create: {} },
       colors: {
         create: [
           {
@@ -323,6 +332,7 @@ async function main() {
       price: 349.9,
       isPromotion: true,
       promotionPrice: 279.9,
+      bagDetails: { create: {} },
       colors: {
         create: [
           {
@@ -369,6 +379,7 @@ async function main() {
       material: 'Cetim com Strass',
       size: ProductSize.SMALL,
       price: 199.9,
+      bagDetails: { create: {} },
       colors: {
         create: [
           {
@@ -405,6 +416,103 @@ async function main() {
     include: { colors: true },
   });
 
+  // ── Wallets / Backpacks ─────────────────────────────────────────
+  // Product → ProductColor → Image (nested relations)
+  // Product(BACKPACK) → BackpackDetails
+
+  const walletSmall = await prisma.product.create({
+    data: {
+      category: ProductCategory.WALLET,
+      modelCode: 'WLT-001',
+      name: 'Carteira Compact',
+      description:
+        'Carteira compacta com porta-cartões e compartimento para moedas. Ideal para o dia a dia.',
+      material: 'Couro Sintético',
+      size: ProductSize.SMALL,
+      price: 89.9,
+      colors: {
+        create: [
+          {
+            colorName: 'Marrom',
+            hexCode: '#5C4033',
+            stockQuantity: 60,
+            images: {
+              create: [
+                {
+                  url: 'https://placehold.co/600x400/5C4033/fff?text=Compact+Marrom',
+                  altText: 'Carteira Compact Marrom',
+                  displayOrder: 0,
+                },
+              ],
+            },
+          },
+          {
+            colorName: 'Preto',
+            hexCode: '#000000',
+            stockQuantity: 55,
+            images: {
+              create: [
+                {
+                  url: 'https://placehold.co/600x400/000/fff?text=Compact+Preto',
+                  altText: 'Carteira Compact Preto',
+                  displayOrder: 0,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    include: { colors: true },
+  });
+
+  const backpackMedium = await prisma.product.create({
+    data: {
+      category: ProductCategory.BACKPACK,
+      modelCode: 'BPK-001',
+      name: 'Mochila Explorer',
+      description:
+        'Mochila versátil para trabalho e viagens curtas. Compartimento acolchoado para notebook e bolsos externos.',
+      material: 'Poliéster Impermeável',
+      size: ProductSize.MEDIUM,
+      price: 249.9,
+      backpackDetails: { create: {} },
+      colors: {
+        create: [
+          {
+            colorName: 'Preto',
+            hexCode: '#000000',
+            stockQuantity: 35,
+            images: {
+              create: [
+                {
+                  url: 'https://placehold.co/600x400/000/fff?text=Explorer+Preto',
+                  altText: 'Mochila Explorer Preto',
+                  displayOrder: 0,
+                },
+              ],
+            },
+          },
+          {
+            colorName: 'Cinza',
+            hexCode: '#808080',
+            stockQuantity: 28,
+            images: {
+              create: [
+                {
+                  url: 'https://placehold.co/600x400/808080/fff?text=Explorer+Cinza',
+                  altText: 'Mochila Explorer Cinza',
+                  displayOrder: 0,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    include: { colors: true },
+  });
+
   console.log('Products with colors and images created');
 
   const color = (
@@ -424,6 +532,11 @@ async function main() {
           {
             productId: bagMedium.id,
             productColorId: color(bagMedium, 'Preto').id,
+            quantity: 1,
+          },
+          {
+            productId: walletSmall.id,
+            productColorId: color(walletSmall, 'Preto').id,
             quantity: 1,
           },
           {
@@ -448,6 +561,11 @@ async function main() {
             quantity: 1,
           },
           {
+            productId: backpackMedium.id,
+            productColorId: color(backpackMedium, 'Preto').id,
+            quantity: 1,
+          },
+          {
             productId: bagMini.id,
             productColorId: color(bagMini, 'Rosa').id,
             quantity: 1,
@@ -462,7 +580,7 @@ async function main() {
   // ── Orders (OrderStatus: PENDING, PROCESSING, COMPLETED, CANCELLED)
   // Order → OrderItem, Order → Address, Order → Cart, Order → User (completedBy)
 
-  await prisma.order.create({
+  const order1 = await prisma.order.create({
     data: {
       userId: client1.id,
       addressId: addr1.id,
@@ -473,8 +591,8 @@ async function main() {
       shippingCost: 25.0,
       discount: 0,
       totalAmount: 624.8,
-      paymentMethod: 'PIX',
-      paymentStatus: 'PAID',
+      paymentMethod: 'pix',
+      paymentStatus: PaymentStatus.APPROVED,
       completedAt: new Date('2026-03-05'),
       completedById: employee.id,
       items: {
@@ -491,7 +609,7 @@ async function main() {
     },
   });
 
-  await prisma.order.create({
+  const order2 = await prisma.order.create({
     data: {
       userId: client2.id,
       addressId: addr3.id,
@@ -503,8 +621,8 @@ async function main() {
       shippingCost: 30.0,
       discount: 50.0,
       totalAmount: 529.8,
-      paymentMethod: 'CREDIT_CARD',
-      paymentStatus: 'PAID',
+      paymentMethod: 'visa',
+      paymentStatus: PaymentStatus.PENDING,
       items: {
         create: [
           {
@@ -526,7 +644,7 @@ async function main() {
     },
   });
 
-  await prisma.order.create({
+  const order3 = await prisma.order.create({
     data: {
       userId: client1.id,
       addressId: addr2.id,
@@ -536,8 +654,8 @@ async function main() {
       shippingCost: 15.0,
       discount: 0,
       totalAmount: 294.9,
-      paymentMethod: null,
-      paymentStatus: 'AWAITING',
+      paymentMethod: 'pix',
+      paymentStatus: PaymentStatus.PENDING,
       items: {
         create: [
           {
@@ -552,7 +670,7 @@ async function main() {
     },
   });
 
-  await prisma.order.create({
+  const order4 = await prisma.order.create({
     data: {
       userId: client2.id,
       addressId: addr3.id,
@@ -562,8 +680,8 @@ async function main() {
       shippingCost: 20.0,
       discount: 0,
       totalAmount: 219.9,
-      paymentMethod: 'BOLETO',
-      paymentStatus: 'REFUNDED',
+      paymentMethod: 'pix',
+      paymentStatus: PaymentStatus.REFUNDED,
       items: {
         create: [
           {
@@ -575,6 +693,119 @@ async function main() {
           },
         ],
       },
+    },
+  });
+
+  // ── Payments (Order → PaymentAttempt) ─────────────────────────────
+  // Observação: PaymentAttempts são usadas pelo backend para idempotência e para
+  // “amarrar” o estado do Order com o pagamento do Mercado Pago.
+  const mpSeedPix1 = 'MP_SEED_PIX_0001';
+  const mpSeedCard2 = 'MP_SEED_CARD_0002';
+  const mpSeedPix3 = 'MP_SEED_PIX_0003';
+  const mpSeedPix4 = 'MP_SEED_PIX_0004';
+
+  await prisma.paymentAttempt.create({
+    data: {
+      orderId: order1.id,
+      provider: PaymentProvider.MERCADO_PAGO,
+      type: PaymentType.PIX,
+      status: PaymentStatus.APPROVED,
+      idempotencyKey: `seed:${order1.id}:PIX`,
+      mpPaymentId: mpSeedPix1,
+      mpStatus: 'approved',
+      mpStatusDetail: 'accredited',
+      pixQrCode: '00020101021226870014br.gov.bcb.pix0136seed-qr-code0000000000000000000000000000000000000000000000000000000215seed000000000000000000000000000000000000000000000000000000000000000000',
+      pixQrCodeBase64: 'c2VlZC1xcg==', // base64 de "seed-qr"
+      pixExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: order1.id },
+    data: {
+      paymentProvider: PaymentProvider.MERCADO_PAGO,
+      paymentType: PaymentType.PIX,
+      paymentStatus: PaymentStatus.APPROVED,
+      externalPaymentId: mpSeedPix1,
+      paymentMethod: 'pix',
+    },
+  });
+
+  await prisma.paymentAttempt.create({
+    data: {
+      orderId: order2.id,
+      provider: PaymentProvider.MERCADO_PAGO,
+      type: PaymentType.CARD,
+      status: PaymentStatus.PENDING,
+      idempotencyKey: `seed:${order2.id}:CARD`,
+      mpPaymentId: mpSeedCard2,
+      mpStatus: 'pending',
+      mpStatusDetail: 'pending',
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: order2.id },
+    data: {
+      paymentProvider: PaymentProvider.MERCADO_PAGO,
+      paymentType: PaymentType.CARD,
+      paymentStatus: PaymentStatus.PENDING,
+      externalPaymentId: mpSeedCard2,
+      paymentMethod: 'visa',
+    },
+  });
+
+  await prisma.paymentAttempt.create({
+    data: {
+      orderId: order3.id,
+      provider: PaymentProvider.MERCADO_PAGO,
+      type: PaymentType.PIX,
+      status: PaymentStatus.PENDING,
+      idempotencyKey: `seed:${order3.id}:PIX`,
+      mpPaymentId: mpSeedPix3,
+      mpStatus: 'pending',
+      mpStatusDetail: 'pending',
+      pixQrCode: '00020101021226870014br.gov.bcb.pix0136seed-qr-code-0003',
+      pixQrCodeBase64: 'c2VlZC1xcg==', // base64 de "seed-qr"
+      pixExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: order3.id },
+    data: {
+      paymentProvider: PaymentProvider.MERCADO_PAGO,
+      paymentType: PaymentType.PIX,
+      paymentStatus: PaymentStatus.PENDING,
+      externalPaymentId: mpSeedPix3,
+      paymentMethod: 'pix',
+    },
+  });
+
+  await prisma.paymentAttempt.create({
+    data: {
+      orderId: order4.id,
+      provider: PaymentProvider.MERCADO_PAGO,
+      type: PaymentType.PIX,
+      status: PaymentStatus.REFUNDED,
+      idempotencyKey: `seed:${order4.id}:PIX`,
+      mpPaymentId: mpSeedPix4,
+      mpStatus: 'refunded',
+      mpStatusDetail: 'refunded',
+      pixQrCode: '00020101021226870014br.gov.bcb.pix0136seed-qr-code-0004',
+      pixQrCodeBase64: 'c2VlZC1xcg==', // base64 de "seed-qr"
+      pixExpiresAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: order4.id },
+    data: {
+      paymentProvider: PaymentProvider.MERCADO_PAGO,
+      paymentType: PaymentType.PIX,
+      paymentStatus: PaymentStatus.REFUNDED,
+      externalPaymentId: mpSeedPix4,
+      paymentMethod: 'pix',
     },
   });
 

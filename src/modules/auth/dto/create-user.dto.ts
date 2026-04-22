@@ -1,31 +1,47 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsEnum, Matches, MaxLength, MinLength } from "class-validator";
-import { Transform } from "class-transformer";
-import { UserRole } from "@prisma/client";
+import {
+    IsEmail,
+    IsNotEmpty,
+    IsOptional,
+    IsPhoneNumber,
+    IsString,
+    IsEnum,
+    Matches,
+    MaxLength,
+    MinLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { UserRole } from '@prisma/client';
 
 export class CreateUserDto {
-    @IsEmail({}, { message: 'Invalid email' })
-    @IsNotEmpty({ message: 'Email is required' })
+    @IsEmail({}, { message: 'E-mail inválido' })
+    @IsNotEmpty({ message: 'E-mail é obrigatório' })
     email: string;
 
-    @IsString({ message: 'Password must be a string' })
-    @IsNotEmpty({ message: 'Password is required' })
-    @MinLength(8, { message: 'Password must be at least 8 characters long' })
-    @MaxLength(32, { message: 'Password must be less than 32 characters long' })
-    @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,32}$/, { message: 'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character' })
+    @IsString({ message: 'A senha deve ser uma string' })
+    @IsNotEmpty({ message: 'Senha é obrigatória' })
+    @MinLength(8, { message: 'A senha deve ter no mínimo 8 caracteres' })
+    @MaxLength(32, { message: 'A senha deve ter no máximo 32 caracteres' })
+    @Matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,32}$/,
+        {
+            message:
+                'A senha deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial',
+        },
+    )
     password: string;
 
-    @IsPhoneNumber('BR', { message: 'Invalid phone number' })
-    @IsNotEmpty({ message: 'Phone number is required' })
+    @IsPhoneNumber('BR', { message: 'Telefone inválido' })
+    @IsNotEmpty({ message: 'Telefone é obrigatório' })
     @Transform(({ value }) => value.replace(/\D/g, ''))
     phone: string;
 
-    @IsString({ message: 'Name must be a string' })
-    @IsNotEmpty({ message: 'Name is required' })
-    @MinLength(3, { message: 'Name must be at least 3 characters long' })
-    @MaxLength(100, { message: 'Name must be less than 100 characters long' })
+    @IsString({ message: 'O nome deve ser uma string' })
+    @IsNotEmpty({ message: 'Nome é obrigatório' })
+    @MinLength(3, { message: 'O nome deve ter no mínimo 3 caracteres' })
+    @MaxLength(100, { message: 'O nome deve ter no máximo 100 caracteres' })
     name: string;
 
     @IsOptional()
-    @IsEnum(UserRole, { message: 'Invalid role' })
+    @IsEnum(UserRole, { message: 'Função inválida' })
     role?: UserRole = UserRole.CLIENT;
 }

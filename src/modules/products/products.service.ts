@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Inject,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -13,9 +18,10 @@ import { createHash, randomUUID } from 'crypto';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'products');
 
+const PRODUCTS_LIST_VERSION_KEY = 'products:list:version';
+
 @Injectable()
 export class ProductsService {
-
     constructor(
         private readonly prisma: PrismaService,
         private readonly configService: ConfigService,
@@ -35,7 +41,7 @@ export class ProductsService {
             filesByColor.get(idx)!.push(file);
         }
 
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             const product = await tx.product.create({
                 data: {
                     category: dto.category,
@@ -90,11 +96,15 @@ export class ProductsService {
                 },
             });
         });
+
+        await this.invalidateProductsCache();
+        return result;
     }
 
     async findAll(query: FilterProductsDto, isAdmin: boolean) {
         const ttl = this.configService.get<number>('CACHE_TTL_MS', 60_000);
-        const cacheKey = this.productsListCacheKey(query, isAdmin);
+        const listVersion = await this.getListCacheVersion();
+        const cacheKey = this.productsListCacheKey(query, isAdmin, listVersion);
 
         return this.cacheManager.wrap(
             cacheKey,
@@ -103,7 +113,29 @@ export class ProductsService {
         );
     }
 
-    private productsListCacheKey(query: FilterProductsDto, isAdmin: boolean): string {
+    private async invalidateProductsCache(productId?: string) {
+        await this.cacheManager.set(
+            PRODUCTS_LIST_VERSION_KEY,
+            String(Date.now()),
+            0,
+        );
+        if (productId) {
+            await this.cacheManager.del(this.productsCacheKey(productId));
+        }
+    }
+
+    private async getListCacheVersion(): Promise<string> {
+        const v = await this.cacheManager.get<string>(
+            PRODUCTS_LIST_VERSION_KEY,
+        );
+        return v ?? '0';
+    }
+
+    private productsListCacheKey(
+        query: FilterProductsDto,
+        isAdmin: boolean,
+        listVersion: string,
+    ): string {
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 20;
         const payload = JSON.stringify({
@@ -116,11 +148,17 @@ export class ProductsService {
             page,
             limit,
         });
-        const hash = createHash('sha256').update(payload).digest('hex').slice(0, 32);
-        return `products:list:${hash}`;
+        const hash = createHash('sha256')
+            .update(payload)
+            .digest('hex')
+            .slice(0, 32);
+        return `products:list:v${listVersion}:${hash}`;
     }
 
-    private async fetchProductsList(query: FilterProductsDto, isAdmin: boolean) {
+    private async fetchProductsList(
+        query: FilterProductsDto,
+        isAdmin: boolean,
+    ) {
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 20;
         const skip = (page - 1) * limit;
@@ -131,7 +169,8 @@ export class ProductsService {
         if (query.category) where.category = query.category as any;
 
         if (isAdmin) {
-            if (query.name) where.name = { contains: query.name, mode: 'insensitive' };
+            if (query.name)
+                where.name = { contains: query.name, mode: 'insensitive' };
             if (query.size) where.size = query.size as any;
 
             if (query.date) orderBy.createdAt = query.date;
@@ -188,10 +227,14 @@ export class ProductsService {
         );
     }
 
-    async update(id: string, updateProductDto: UpdateProductDto, files: Express.Multer.File[]) {
+    async update(
+        id: string,
+        updateProductDto: UpdateProductDto,
+        files: Express.Multer.File[],
+    ) {
         const { colors, ...productData } = updateProductDto;
 
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             const product = await tx.product.update({
                 where: { id },
                 data: productData,
@@ -207,9 +250,13 @@ export class ProductsService {
 
             return product;
         });
+
+        await this.invalidateProductsCache(id);
+        return result;
     }
 
-    remove(id: number) {
-        return `This action removes a #${id} product`;
+    async remove(id: string) {
+        await this.prisma.product.delete({ where: { id } });
+        await this.invalidateProductsCache(id);
     }
 }

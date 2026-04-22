@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Post,
+    Body,
+    Patch,
+    Param,
+    Delete,
+    UseGuards,
+    Query,
+} from '@nestjs/common';
 import { CartsService } from './carts.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
@@ -19,6 +29,15 @@ export class CartsController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @Get('shipping-quote')
+    getShippingQuote(
+        @User() user: UserResponse,
+        @Query('zipCode') zipCode: string,
+    ) {
+        return this.cartsService.getShippingQuotes(user.id, zipCode);
+    }
+
+    @UseGuards(JwtAuthGuard)
     @Post('items')
     create(@Body() createCartDto: CreateCartDto, @User() user: UserResponse) {
         return this.cartsService.addToCart(createCartDto, user.id);
@@ -26,8 +45,16 @@ export class CartsController {
 
     @UseGuards(JwtAuthGuard)
     @Patch('items/:id')
-    updateItemQuantity(@Param('id') id: string, @Body() updateItemQuantityDto: UpdateItemDto, @User() user: UserResponse) {
-        return this.cartsService.updateItemQuantity(id, user.id, updateItemQuantityDto.quantity);
+    updateItemQuantity(
+        @Param('id') id: string,
+        @Body() updateItemQuantityDto: UpdateItemDto,
+        @User() user: UserResponse,
+    ) {
+        return this.cartsService.updateItemQuantity(
+            id,
+            user.id,
+            updateItemQuantityDto.quantity,
+        );
     }
 
     @UseGuards(JwtAuthGuard)
@@ -38,7 +65,15 @@ export class CartsController {
 
     @UseGuards(JwtAuthGuard)
     @Delete('items/:id')
-    removeItem(@Param('id') id: string, @User() user: UserResponse, @Body() deleteItemDto: DeleteItemDto) {
-        return this.cartsService.removeItem(id, user.id, deleteItemDto.quantity);
+    removeItem(
+        @Param('id') id: string,
+        @User() user: UserResponse,
+        @Body() deleteItemDto: DeleteItemDto,
+    ) {
+        return this.cartsService.removeItem(
+            id,
+            user.id,
+            deleteItemDto.quantity,
+        );
     }
 }

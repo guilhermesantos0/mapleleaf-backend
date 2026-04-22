@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+    ConflictException,
+    Injectable,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
@@ -22,13 +26,13 @@ type SafeUser = {
     phone: string;
     createdAt: Date;
     updatedAt: Date;
-}
+};
 
 type LoginResponse = {
     accessToken: string;
     refreshToken: string;
     user: UserResponse;
-}
+};
 
 @Injectable()
 export class AuthService {
@@ -43,34 +47,38 @@ export class AuthService {
         return {
             id: user.id,
             email: user.email,
-            name: user.name || 'Unknown',
+            name: user.name || 'Desconhecido',
             role: user.role,
-            cpf: user.cpf || 'Unknown',
-            phone: user.phone || 'Unknown',
+            cpf: user.cpf || 'Desconhecido',
+            phone: user.phone || 'Desconhecido',
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-        }
+        };
     }
 
     private async toResponseUserObject(user: User): Promise<UserResponse> {
         return {
             id: user.id,
             email: user.email,
-            name: user.name || 'Unknown',
+            name: user.name || 'Desconhecido',
             role: user.role,
             emailVerifiedAt: user.emailVerifiedAt || null,
-        }
+        };
     }
 
     private async validateUser(email: string, password: string): Promise<any> {
         const user = await this.prisma.user.findUnique({
             where: { email },
-        })
+        });
 
-        if (!user) throw new UnauthorizedException('Invalid credentials');
+        if (!user) throw new UnauthorizedException('Credenciais inválidas');
 
-        const isPasswordValid = await argon2.verify(user.password, password + process.env.PASSWORD_PEPPER);
-        if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+        const isPasswordValid = await argon2.verify(
+            user.password,
+            password + process.env.PASSWORD_PEPPER,
+        );
+        if (!isPasswordValid)
+            throw new UnauthorizedException('Credenciais inválidas');
 
         return await this.toResponseUserObject(user);
     }
@@ -86,14 +94,16 @@ export class AuthService {
             data: {
                 token: hashedToken,
                 userId,
-                expiresAt
-            }
-        })
+                expiresAt,
+            },
+        });
 
         return `${userId}.${token}`;
     }
 
-    private async generateEmailVerificationToken(userId: string): Promise<{ token: string; expiresAt: Date; sentAt: Date }> {
+    private async generateEmailVerificationToken(
+        userId: string,
+    ): Promise<{ token: string; expiresAt: Date; sentAt: Date }> {
         const token = randomBytes(64).toString('hex');
         const hashedToken = await argon2.hash(token);
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -105,7 +115,7 @@ export class AuthService {
                 emailVerificationToken: hashedToken,
                 emailVerificationTokenExpiresAt: expiresAt,
                 emailVerificationTokenSentAt: sentAt,
-            }
+            },
         });
 
         return { token, expiresAt, sentAt };
@@ -114,30 +124,39 @@ export class AuthService {
     async login(loginDto: LoginDto): Promise<LoginResponse> {
         const user = await this.validateUser(loginDto.email, loginDto.password);
 
-        if (!user) throw new UnauthorizedException('Invalid credentials');
+        if (!user) throw new UnauthorizedException('Credenciais inválidas');
 
-        if (!user.emailVerifiedAt) throw new UnauthorizedException('Email not verified');
+        if (!user.emailVerifiedAt)
+            throw new UnauthorizedException('E-mail não verificado');
 
         const oldRefreshToken = await this.prisma.refreshToken.findFirst({
             where: { userId: user.id },
         });
 
-        if (oldRefreshToken) await this.prisma.refreshToken.delete({ where: { id: oldRefreshToken.id } });
+        if (oldRefreshToken)
+            await this.prisma.refreshToken.delete({
+                where: { id: oldRefreshToken.id },
+            });
 
         const payload = { sub: user.id, email: user.email };
-        const accessToken = await this.jwtService.signAsync(payload, { expiresIn: '15m' });
+        const accessToken = await this.jwtService.signAsync(payload, {
+            expiresIn: '15m',
+        });
         const refreshToken = await this.generateRefreshToken(user.id);
-
 
         return { accessToken, refreshToken, user };
     }
 
     async register(createUserDto: CreateUserDto): Promise<SafeUser> {
-        const existingUser = await this.prisma.user.findUnique({ where: { email: createUserDto.email } });
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: createUserDto.email },
+        });
 
-        if (existingUser) throw new ConflictException('User already exists');
+        if (existingUser) throw new ConflictException('Usuário já existe');
 
-        const hashedPassword = await argon2.hash(createUserDto.password + process.env.PASSWORD_PEPPER);
+        const hashedPassword = await argon2.hash(
+            createUserDto.password + process.env.PASSWORD_PEPPER,
+        );
 
         const user = await this.prisma.user.create({
             data: {
@@ -147,8 +166,9 @@ export class AuthService {
                 name: createUserDto.name,
             },
         });
-        
-        const { token, expiresAt, sentAt } = await this.generateEmailVerificationToken(user.id);
+
+        const { token, expiresAt, sentAt } =
+            await this.generateEmailVerificationToken(user.id);
 
         await this.prisma.user.update({
             where: { id: user.id },
@@ -156,7 +176,7 @@ export class AuthService {
                 emailVerificationToken: token,
                 emailVerificationTokenExpiresAt: expiresAt,
                 emailVerificationTokenSentAt: sentAt,
-            }
+            },
         });
 
         return await this.toSafeUserObject(user);
@@ -164,7 +184,8 @@ export class AuthService {
 
     async refreshToken(compositeToken: string): Promise<LoginResponse> {
         const separatorIndex = compositeToken.indexOf('.');
-        if (separatorIndex === -1) throw new UnauthorizedException('Invalid refresh token');
+        if (separatorIndex === -1)
+            throw new UnauthorizedException('Token de atualização inválido');
 
         const userId = compositeToken.substring(0, separatorIndex);
         const rawToken = compositeToken.substring(separatorIndex + 1);
@@ -174,12 +195,15 @@ export class AuthService {
             include: { user: true },
         });
 
-        if (!token) throw new UnauthorizedException('Invalid refresh token');
+        if (!token)
+            throw new UnauthorizedException('Token de atualização inválido');
 
         const isTokenValid = await argon2.verify(token.token, rawToken);
-        if (!isTokenValid) throw new UnauthorizedException('Invalid refresh token');
+        if (!isTokenValid)
+            throw new UnauthorizedException('Token de atualização inválido');
 
-        if (token.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
+        if (token.expiresAt < new Date())
+            throw new UnauthorizedException('Token de atualização expirado');
 
         const user = await this.toResponseUserObject(token.user);
 
@@ -188,7 +212,9 @@ export class AuthService {
         });
 
         const payload = { sub: user.id, email: user.email };
-        const accessToken = await this.jwtService.signAsync(payload, { expiresIn: '15m' });
+        const accessToken = await this.jwtService.signAsync(payload, {
+            expiresIn: '15m',
+        });
         const newRefreshToken = await this.generateRefreshToken(user.id);
 
         return { accessToken, refreshToken: newRefreshToken, user };
@@ -205,13 +231,24 @@ export class AuthService {
             where: { id: userId },
         });
 
-        if (!user) throw new UnauthorizedException('User not found');
+        if (!user) throw new UnauthorizedException('Usuário não encontrado');
 
-        if (user.emailVerifiedAt) throw new ConflictException('Email already verified');
+        if (user.emailVerifiedAt)
+            throw new ConflictException('E-mail já verificado');
 
-        if (user.emailVerificationToken && user.emailVerificationTokenExpiresAt && user.emailVerificationTokenExpiresAt > new Date()) {
-            const isTokenValid = await argon2.verify(user.emailVerificationToken, user.emailVerificationToken);
-            if (!isTokenValid) throw new UnauthorizedException('Invalid email verification token');
+        if (
+            user.emailVerificationToken &&
+            user.emailVerificationTokenExpiresAt &&
+            user.emailVerificationTokenExpiresAt > new Date()
+        ) {
+            const isTokenValid = await argon2.verify(
+                user.emailVerificationToken,
+                user.emailVerificationToken,
+            );
+            if (!isTokenValid)
+                throw new UnauthorizedException(
+                    'Token de verificação de e-mail inválido',
+                );
         }
 
         await this.prisma.user.update({
@@ -225,29 +262,32 @@ export class AuthService {
             where: { id: userId },
         });
 
-        if (!user) throw new UnauthorizedException('User not found');
+        if (!user) throw new UnauthorizedException('Usuário não encontrado');
 
-        if (user.emailVerifiedAt) throw new ConflictException('Email already verified');
+        if (user.emailVerifiedAt)
+            throw new ConflictException('E-mail já verificado');
 
-        if (user.emailVerificationTokenExpiresAt && user.emailVerificationTokenExpiresAt < new Date()) {
-            const { token, expiresAt, sentAt } = await this.generateEmailVerificationToken(userId);
+        if (
+            user.emailVerificationTokenExpiresAt &&
+            user.emailVerificationTokenExpiresAt < new Date()
+        ) {
+            const { token, expiresAt, sentAt } =
+                await this.generateEmailVerificationToken(userId);
             await this.prisma.user.update({
                 where: { id: userId },
                 data: {
                     emailVerificationToken: token,
                     emailVerificationTokenExpiresAt: expiresAt,
                     emailVerificationTokenSentAt: sentAt,
-                }
+                },
             });
 
             // funcao de mandar email
-            return { message: 'Email verification token resent' };
+            return { message: 'Token de verificação de e-mail reenviado' };
         } else {
             // funcao de mandar email
-            return { message: 'Email verification token already sent' };
-        };
-
-
+            return { message: 'Token de verificação de e-mail já foi enviado' };
+        }
     }
 
     private usersCacheKey(userId: string): string {
@@ -259,7 +299,7 @@ export class AuthService {
             where: { id: userId },
         });
 
-        if (!user) throw new UnauthorizedException('User not found');
+        if (!user) throw new UnauthorizedException('Usuário não encontrado');
 
         return await this.toResponseUserObject(user);
     }

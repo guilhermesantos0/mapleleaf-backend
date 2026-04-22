@@ -39,7 +39,7 @@ export class ProductsController {
         @UploadedFiles() files: Express.Multer.File[],
     ) {
         if (!files || files.length === 0) {
-            throw new BadRequestException('At least one image is required');
+            throw new BadRequestException('É necessária pelo menos uma imagem');
         }
         return this.productsService.create(createProductDto, files);
     }
@@ -60,13 +60,16 @@ export class ProductsController {
     @Roles(UserRole.ADMIN)
     @Put(':id')
     @UseInterceptors(AnyFilesInterceptor())
-    update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @UploadedFiles() files: Express.Multer.File[]) {
-        
+    update(
+        @Param('id') id: string,
+        @Body() updateProductDto: UpdateProductDto,
+        @UploadedFiles() files: Express.Multer.File[],
+    ) {
         return this.productsService.update(id, updateProductDto, files);
     }
 
     @Delete(':id')
     remove(@Param('id') id: string) {
-        return this.productsService.remove(+id);
+        return this.productsService.remove(id);
     }
 }

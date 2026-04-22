@@ -1,8 +1,7 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
-import { ProductCategory } from "@prisma/client";
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ProductCategory } from '@prisma/client';
 
 export class FilterProductsDto {
-
     @IsOptional()
     @IsEnum(ProductCategory)
     category?: ProductCategory;

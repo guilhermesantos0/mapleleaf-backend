@@ -9,6 +9,10 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CartsModule } from './modules/carts/carts.module';
 import { ProductsModule } from './modules/products/products.module';
 import { UsersModule } from './modules/users/users.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
+import { PaymentModule } from './integrations/payment/payment.module';
+import { ShippingModule } from './integrations/shipping/shipping.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
     imports: [
@@ -16,10 +20,14 @@ import { UsersModule } from './modules/users/users.module';
         RedisCacheModule,
         PrismaModule,
         AuthModule,
+        PaymentModule,
+        ShippingModule,
         OrdersModule,
+        PaymentsModule,
         CartsModule,
         ProductsModule,
         UsersModule,
+        AddressesModule,
     ],
     controllers: [AppController],
     providers: [AppService],

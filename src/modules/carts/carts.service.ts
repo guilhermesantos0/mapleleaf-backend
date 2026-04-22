@@ -1,12 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CartStatus } from '@prisma/client';
+import { ShippingService } from 'src/integrations/shipping/shipping.service';
 
 @Injectable()
 export class CartsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly shippingService: ShippingService,
+    ) {}
 
     async addToCart(createCartDto: CreateCartDto, userId: string) {
         let cart = await this.prisma.cart.findFirst({
@@ -15,7 +23,7 @@ export class CartsService {
                 status: CartStatus.ACTIVE,
             },
         });
-        
+
         if (!cart) {
             cart = await this.prisma.cart.create({
                 data: {
@@ -32,25 +40,29 @@ export class CartsService {
                 productColorId: createCartDto.productColorId,
             },
         });
-        
+
         if (existingCartItem) {
             await this.prisma.cartItem.update({
                 where: { id: existingCartItem.id },
-                data: { quantity: existingCartItem.quantity + (createCartDto.quantity || 1) },
+                data: {
+                    quantity:
+                        existingCartItem.quantity +
+                        (createCartDto.quantity || 1),
+                },
             });
         } else {
             await this.prisma.cartItem.create({
-                data: { 
-                    cartId: cart.id, 
-                    productId: createCartDto.productId, 
-                    productColorId: createCartDto.productColorId, 
-                    quantity: createCartDto.quantity || 1 
+                data: {
+                    cartId: cart.id,
+                    productId: createCartDto.productId,
+                    productColorId: createCartDto.productColorId,
+                    quantity: createCartDto.quantity || 1,
                 },
             });
         }
 
         const userCart = await this.findByUserId(userId);
-        
+
         return userCart;
     }
 
@@ -63,11 +75,15 @@ export class CartsService {
                 },
             },
         });
-        
-        if (!cartItem) throw new NotFoundException('Cart item not found');
+
+        if (!cartItem)
+            throw new NotFoundException('Item do carrinho não encontrado');
 
         if (quantity) {
-            if (quantity > cartItem.quantity) throw new BadRequestException('Quantity is greater than the available quantity');
+            if (quantity > cartItem.quantity)
+                throw new BadRequestException(
+                    'A quantidade é maior que a quantidade disponível',
+                );
             if (quantity === cartItem.quantity) {
                 await this.prisma.cartItem.delete({
                     where: { id },
@@ -90,10 +106,14 @@ export class CartsService {
         const cartItem = await this.prisma.cartItem.findFirst({
             where: { id, cart: { userId } },
         });
-        
-        if (!cartItem) throw new NotFoundException('Cart item not found');
-        
-        await this.prisma.cartItem.update({ where: { id }, data: { quantity } });
+
+        if (!cartItem)
+            throw new NotFoundException('Item do carrinho não encontrado');
+
+        await this.prisma.cartItem.update({
+            where: { id },
+            data: { quantity },
+        });
 
         return this.findByUserId(userId);
     }
@@ -104,6 +124,31 @@ export class CartsService {
         });
 
         return this.findByUserId(userId);
+    }
+
+    async getShippingQuotes(userId: string, toZipCode: string) {
+        const cart = await this.prisma.cart.findFirst({
+            where: { userId, status: CartStatus.ACTIVE },
+            include: {
+                items: {
+                    include: { product: true },
+                },
+            },
+        });
+
+        if (!cart || cart.items.length === 0) {
+            throw new BadRequestException('Carrinho vazio');
+        }
+
+        const packages = cart.items.map((item) => ({
+            width: Number(item.product.defaultBoxWidth),
+            height: Number(item.product.defaultBoxHeight),
+            length: Number(item.product.defaultBoxLength),
+            weight: Number(item.product.defaultBoxWeight),
+            quantity: item.quantity,
+        }));
+
+        return this.shippingService.calculateShipping(toZipCode, packages);
     }
 
     async findByUserId(userId: string) {
@@ -130,16 +175,19 @@ export class CartsService {
                                 category: true,
                             },
                         },
-                    }
+                    },
                 },
-            }
+            },
         });
 
-        const totalItems = cart?.items.reduce((acc, item) => acc + item.quantity, 0);
+        const totalItems = cart?.items.reduce(
+            (acc, item) => acc + item.quantity,
+            0,
+        );
 
         return {
             cart,
             totalItems,
-        }
+        };
     }
 }

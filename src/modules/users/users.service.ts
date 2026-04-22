@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    ConflictException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from '../auth/dto/create-user.dto';
@@ -13,18 +17,18 @@ export class UsersService {
     async findAllEmployees() {
         const allUsers = await this.prisma.user.findMany({
             where: {
-                role: { not: UserRole.CLIENT }
+                role: { not: UserRole.CLIENT },
             },
             select: {
                 id: true,
                 name: true,
                 email: true,
                 role: true,
-                phone: true
+                phone: true,
             },
             orderBy: {
-                createdAt: 'desc'
-            }
+                createdAt: 'desc',
+            },
         });
 
         return allUsers;
@@ -38,27 +42,27 @@ export class UsersService {
                 name: true,
                 email: true,
                 role: true,
-                phone: true
-            }
+                phone: true,
+            },
         });
 
-        if (!user) throw new NotFoundException('User not found');
+        if (!user) throw new NotFoundException('Usuário não encontrado');
 
         return user;
     }
 
     async update(id: string, updateUserDto: UpdateUserDto) {
         const user = await this.prisma.user.findUnique({
-            where: { id }
+            where: { id },
         });
 
-        if (!user) throw new NotFoundException('User not found');
+        if (!user) throw new NotFoundException('Usuário não encontrado');
 
         const updatedUser = await this.prisma.user.update({
             where: { id },
             data: {
-                ...updateUserDto
-            }
+                ...updateUserDto,
+            },
         });
 
         return updatedUser;
@@ -66,12 +70,14 @@ export class UsersService {
 
     async create(createUserDto: CreateUserDto) {
         const existingUser = await this.prisma.user.findUnique({
-            where: { email: createUserDto.email }
-        })
+            where: { email: createUserDto.email },
+        });
 
-        if (existingUser) throw new ConflictException('User already exists');
+        if (existingUser) throw new ConflictException('Usuário já existe');
 
-        const hashedPassword = await argon2.hash(createUserDto.password + process.env.PASSWORD_PEPPER);
+        const hashedPassword = await argon2.hash(
+            createUserDto.password + process.env.PASSWORD_PEPPER,
+        );
 
         const user = await this.prisma.user.create({
             data: {
@@ -79,20 +85,10 @@ export class UsersService {
                 password: hashedPassword,
                 role: createUserDto.role || UserRole.CLIENT,
                 name: createUserDto.name,
-                phone: createUserDto.phone
-            }
-        })
+                phone: createUserDto.phone,
+            },
+        });
 
         return user;
-    }
-
-    async createAddress(createAddressDto: CreateAddressDto, userId: string) {
-        const address = await this.prisma.address.create({
-            data: {
-                ...createAddressDto,
-                userId
-            }
-        })
-        return address;
     }
 }

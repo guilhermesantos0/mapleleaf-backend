@@ -1,252 +1,319 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
+  provider = "postgresql"
 }
 
 enum UserRole {
-    ADMIN
-    EMPLOYEE
-    CLIENT
+  ADMIN
+  EMPLOYEE
+  CLIENT
 }
 
 enum OrderStatus {
-    PENDING
-    PROCESSING
-    COMPLETED
-    CANCELLED
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
 }
 
 enum ProductCategory {
-    BAG
-    WALLET
-    BACKPACK
+  BAG
+  WALLET
+  BACKPACK
 }
 
 enum ProductSize {
-    MINI
-    SMALL
-    MEDIUM
-    LARGE
+  MINI
+  SMALL
+  MEDIUM
+  LARGE
 }
 
 enum CartStatus {
-    ACTIVE
-    CHECKED_OUT
+  ACTIVE
+  CHECKED_OUT
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  MERCADO_PAGO
+}
+
+enum PaymentType {
+  CARD
+  PIX
 }
 
 model User {
-    id       String   @id @default(uuid())
-    email    String   @unique
-    password String
-    role     UserRole
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String
+  role     UserRole
 
-    cpf   String? @unique
-    phone String?
+  cpf   String? @unique
+  phone String?
 
-    name String?
+  name String?
 
-    emailVerifiedAt DateTime?
-    emailVerificationToken String?
-    emailVerificationTokenExpiresAt DateTime?
-    emailVerificationTokenSentAt DateTime?
+  emailVerifiedAt                 DateTime?
+  emailVerificationToken          String?
+  emailVerificationTokenExpiresAt DateTime?
+  emailVerificationTokenSentAt    DateTime?
 
-    addresses       Address[]
-    carts           Cart[]
-    orders          Order[]   @relation("UserOrders")
-    completedOrders Order[]   @relation("CompletedOrders")
+  addresses       Address[]
+  carts           Cart[]
+  orders          Order[]   @relation("UserOrders")
+  completedOrders Order[]   @relation("CompletedOrders")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    refreshTokens RefreshToken[]
+  refreshTokens RefreshToken[]
 
-    @@map("users")
+  @@map("users")
 }
 
 model Address {
-    id         String  @id @default(uuid())
-    userId     String
-    street     String
-    number     String
-    complement String?
-    district   String
-    city       String
-    state      String
-    zipCode    String
-    country    String  @default("BR")
-    isDefault  Boolean @default(false)
-    label      String
+  id         String  @id @default(uuid())
+  userId     String
+  street     String
+  number     String
+  complement String?
+  district   String
+  city       String
+  state      String
+  zipCode    String
+  country    String  @default("BR")
+  isDefault  Boolean @default(false)
+  label      String
 
-    user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    orders Order[]
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("addresses")
+  @@map("addresses")
 }
 
 model Product {
-    id             String          @id @default(uuid())
-    category       ProductCategory
-    modelCode      String          @unique
-    name           String
-    description    String          @db.Text
-    material       String
-    isPromotion    Boolean         @default(false)
-    price          Decimal         @db.Decimal(10, 2)
-    promotionPrice Decimal?        @db.Decimal(10, 2)
+  id             String          @id @default(uuid())
+  category       ProductCategory
+  modelCode      String          @unique
+  name           String
+  description    String          @db.Text
+  material       String
+  isPromotion    Boolean         @default(false)
+  price          Decimal         @db.Decimal(10, 2)
+  promotionPrice Decimal?        @db.Decimal(10, 2)
 
-    colors     ProductColor[]
-    size      ProductSize
-    cartItems  CartItem[]
-    orderItems OrderItem[]
-    bagDetails BagDetails?
+  colors          ProductColor[]
+  size            ProductSize
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  bagDetails      BagDetails?
+  backpackDetails BackpackDetails?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("products")
+  defaultBoxWidth  Decimal @default(20) @db.Decimal(10, 2)
+  defaultBoxHeight Decimal @default(20) @db.Decimal(10, 2)
+  defaultBoxLength Decimal @default(30) @db.Decimal(10, 2)
+  defaultBoxWeight Decimal @default(0.5) @db.Decimal(10, 2)
+
+  @@map("products")
 }
 
 model BagDetails {
-    id        String  @id @default(uuid())
-    productId String  @unique
+  id        String @id @default(uuid())
+  productId String @unique
 
-    product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-    @@map("bag_details")
+  @@map("bag_details")
+}
+
+model BackpackDetails {
+  id        String @id @default(uuid())
+  productId String @unique
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("backpack_details")
 }
 
 model ProductColor {
-    id            String  @id @default(uuid())
-    productId     String
-    colorName     String
-    hexCode       String?
-    stockQuantity Int     @default(0)
+  id            String  @id @default(uuid())
+  productId     String
+  colorName     String
+  hexCode       String?
+  stockQuantity Int     @default(0)
 
-    product Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-    images  Image[]
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images  Image[]
 
-    cartItems CartItem[]
+  cartItems CartItem[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([productId, colorName])
-    @@map("product_colors")
+  @@unique([productId, colorName])
+  @@map("product_colors")
 }
 
 model Image {
-    id             String  @id @default(uuid())
-    productColorId String
-    url            String
-    altText        String?
-    displayOrder   Int     @default(0)
+  id             String  @id @default(uuid())
+  productColorId String
+  url            String
+  altText        String?
+  displayOrder   Int     @default(0)
 
-    productColor ProductColor @relation(fields: [productColorId], references: [id], onDelete: Cascade)
+  productColor ProductColor @relation(fields: [productColorId], references: [id], onDelete: Cascade)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("images")
+  @@map("images")
 }
 
 model Cart {
-    id     String @id @default(uuid())
-    userId String
+  id     String @id @default(uuid())
+  userId String
 
-    user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-    items  CartItem[]
-    orders Order[]
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  CartItem[]
+  orders Order[]
 
-    status CartStatus @default(ACTIVE)
+  status CartStatus @default(ACTIVE)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("carts")
+  @@map("carts")
 }
 
 model CartItem {
-    id             String @id @default(uuid())
-    cartId         String
-    productId      String
-    productColorId String
-    quantity       Int    @default(1)
+  id             String @id @default(uuid())
+  cartId         String
+  productId      String
+  productColorId String
+  quantity       Int    @default(1)
 
-    cart         Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
-    product      Product      @relation(fields: [productId], references: [id])
-    productColor ProductColor @relation(fields: [productColorId], references: [id])
+  cart         Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+  productColor ProductColor @relation(fields: [productColorId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([cartId, productId, productColorId])
-    @@map("cart_items")
+  @@unique([cartId, productId, productColorId])
+  @@map("cart_items")
 }
 
 model Order {
-    id           String      @id @default(uuid())
-    userId       String
-    addressId    String
-    cartId       String?
-    orderNumber  String      @unique
-    status       OrderStatus @default(PENDING)
-    trackingCode String?     @unique
+  id           String      @id @default(uuid())
+  userId       String
+  addressId    String
+  cartId       String?
+  orderNumber  String      @unique
+  status       OrderStatus @default(PENDING)
+  trackingCode String?     @unique
 
-    subtotal     Decimal @db.Decimal(10, 2)
-    shippingCost Decimal @db.Decimal(10, 2)
-    discount     Decimal @default(0) @db.Decimal(10, 2)
-    totalAmount  Decimal @db.Decimal(10, 2)
+  subtotal     Decimal @db.Decimal(10, 2)
+  shippingCost Decimal @db.Decimal(10, 2)
+  discount     Decimal @default(0) @db.Decimal(10, 2)
+  totalAmount  Decimal @db.Decimal(10, 2)
 
-    paymentMethod String?
-    paymentStatus String?
+  paymentMethod String?
+  paymentStatus PaymentStatus @default(PENDING)
 
-    completedAt   DateTime?
-    completedById String?
+  externalPaymentId String?
+  paymentProvider   PaymentProvider?
+  paymentType       PaymentType?
+  shippingServiceId String?
+  shippingLabel     String?
 
-    user        User        @relation("UserOrders", fields: [userId], references: [id])
-    address     Address     @relation(fields: [addressId], references: [id])
-    cart        Cart?       @relation(fields: [cartId], references: [id])
-    items       OrderItem[]
-    completedBy User?       @relation("CompletedOrders", fields: [completedById], references: [id])
+  completedAt   DateTime?
+  completedById String?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  user        User        @relation("UserOrders", fields: [userId], references: [id])
+  address     Address     @relation(fields: [addressId], references: [id])
+  cart        Cart?       @relation(fields: [cartId], references: [id])
+  items       OrderItem[]
+  completedBy User?       @relation("CompletedOrders", fields: [completedById], references: [id])
+  paymentAttempts PaymentAttempt[]
 
-    @@map("orders")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+model PaymentAttempt {
+  id             String          @id @default(uuid())
+  orderId         String
+  provider        PaymentProvider
+  type            PaymentType
+  status          PaymentStatus  @default(PENDING)
+
+  idempotencyKey  String
+
+  mpPaymentId     String?
+  mpStatus        String?
+  mpStatusDetail  String?
+
+  pixQrCode       String? @db.Text
+  pixQrCodeBase64 String? @db.Text
+  pixExpiresAt    DateTime?
+
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, idempotencyKey])
+  @@unique([provider, mpPaymentId])
+  @@index([orderId])
+  @@map("payment_attempts")
 }
 
 model OrderItem {
-    id            String  @id @default(uuid())
-    orderId       String
-    productId         String
-    quantity      Int
-    selectedColor String
-    unitPrice     Decimal @db.Decimal(10, 2)
-    subtotal      Decimal @db.Decimal(10, 2)
+  id            String  @id @default(uuid())
+  orderId       String
+  productId     String
+  quantity      Int
+  selectedColor String
+  unitPrice     Decimal @db.Decimal(10, 2)
+  subtotal      Decimal @db.Decimal(10, 2)
 
-    order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-    product Product   @relation(fields: [productId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@map("order_items")
+  @@map("order_items")
 }
 
 model RefreshToken {
-    id        String   @id @default(uuid())
-    token     String   @unique
-    userId    String
-    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    expiresAt DateTime
-    createdAt DateTime @default(now())
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-    @@index([userId])
-    @@index([token])
+  @@index([userId])
+  @@index([token])
 }
