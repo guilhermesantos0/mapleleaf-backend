@@ -13,12 +13,14 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { PaymentModule } from './integrations/payment/payment.module';
 import { ShippingModule } from './integrations/shipping/shipping.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         RedisCacheModule,
         PrismaModule,
+        MailModule,
         AuthModule,
         PaymentModule,
         ShippingModule,

@@ -3,6 +3,7 @@ import {
     Controller,
     Get,
     Post,
+    Query,
     Req,
     Res,
     UnauthorizedException,
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from './jwt/jwt.guard';
 import { User } from 'src/common/decorators/user.decorator';
 import { UserResponse } from './types/user_response.type';
 import { CreateUserDto } from './dto/create-user.dto';
+import { VerifyEmailTokenDto } from './dto/verify-email-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -124,6 +126,11 @@ export class AuthController {
     @Post('verify-email')
     async verifyEmail(@User() user: UserResponse) {
         return this.authService.verifyEmail(user.id);
+    }
+
+    @Get('verify-email-token')
+    async verifyEmailToken(@Query() query: VerifyEmailTokenDto) {
+        return this.authService.verifyEmailToken(query);
     }
 
     @UseGuards(JwtAuthGuard)

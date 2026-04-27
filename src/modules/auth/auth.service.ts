@@ -16,6 +16,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MailService } from 'src/modules/mail/mail.service';
+import { VerifyEmailTokenDto } from './dto/verify-email-token.dto';
 
 type SafeUser = {
     id: string;
@@ -40,6 +42,7 @@ export class AuthService {
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
+        private readonly mailService: MailService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     ) {}
 
@@ -121,6 +124,50 @@ export class AuthService {
         return { token, expiresAt, sentAt };
     }
 
+    private verificationEmailHtml(params: {
+        name?: string | null;
+        verificationUrl: string;
+        appName: string;
+    }): string {
+        const { name, verificationUrl, appName } = params;
+        const safeName = name?.trim() ? name.trim() : 'Olá';
+        return `
+<div style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5">
+  <h2>Confirme seu e-mail</h2>
+  <p>${safeName},</p>
+  <p>Para confirmar seu e-mail no <strong>${appName}</strong>, clique no link abaixo:</p>
+  <p><a href="${verificationUrl}" target="_blank" rel="noreferrer">${verificationUrl}</a></p>
+  <p>Esse link expira em 15 minutos.</p>
+</div>
+`.trim();
+    }
+
+    private async sendVerificationEmail(params: {
+        email: string;
+        name?: string | null;
+        token: string;
+    }): Promise<void> {
+        const backendUrl = this.configService.get<string>('BACKEND_URL');
+        const appName = this.configService.get<string>('APP_NAME', 'MapleLeaf');
+
+        if (!backendUrl) return;
+
+        const verificationUrl = `${backendUrl}/auth/verify-email-token?email=${encodeURIComponent(
+            params.email,
+        )}&token=${encodeURIComponent(params.token)}`;
+
+        await this.mailService.sendEmail({
+            to: params.email,
+            subject: 'Confirme seu e-mail',
+            html: this.verificationEmailHtml({
+                name: params.name,
+                verificationUrl,
+                appName,
+            }),
+            text: `Confirme seu e-mail acessando: ${verificationUrl}`,
+        });
+    }
+
     async login(loginDto: LoginDto): Promise<LoginResponse> {
         const user = await this.validateUser(loginDto.email, loginDto.password);
 
@@ -167,19 +214,50 @@ export class AuthService {
             },
         });
 
-        const { token, expiresAt, sentAt } =
-            await this.generateEmailVerificationToken(user.id);
+        const { token } = await this.generateEmailVerificationToken(user.id);
+        await this.sendVerificationEmail({
+            email: user.email,
+            name: user.name,
+            token,
+        });
+
+        return await this.toSafeUserObject(user);
+    }
+
+    async verifyEmailToken(dto: VerifyEmailTokenDto): Promise<any> {
+        const user = await this.prisma.user.findUnique({
+            where: { email: dto.email },
+        });
+
+        if (!user) throw new UnauthorizedException('Usuário não encontrado');
+        if (user.emailVerifiedAt)
+            throw new ConflictException('E-mail já verificado');
+
+        if (!user.emailVerificationToken || !user.emailVerificationTokenExpiresAt)
+            throw new UnauthorizedException('Token de verificação inválido');
+
+        if (user.emailVerificationTokenExpiresAt < new Date())
+            throw new UnauthorizedException('Token de verificação expirado');
+
+        const isTokenValid = await argon2.verify(
+            user.emailVerificationToken,
+            dto.token,
+        );
+
+        if (!isTokenValid)
+            throw new UnauthorizedException('Token de verificação inválido');
 
         await this.prisma.user.update({
             where: { id: user.id },
             data: {
-                emailVerificationToken: token,
-                emailVerificationTokenExpiresAt: expiresAt,
-                emailVerificationTokenSentAt: sentAt,
+                emailVerifiedAt: new Date(),
+                emailVerificationToken: null,
+                emailVerificationTokenExpiresAt: null,
+                emailVerificationTokenSentAt: null,
             },
         });
 
-        return await this.toSafeUserObject(user);
+        return { message: 'E-mail verificado com sucesso' };
     }
 
     async refreshToken(compositeToken: string): Promise<LoginResponse> {
@@ -236,24 +314,14 @@ export class AuthService {
         if (user.emailVerifiedAt)
             throw new ConflictException('E-mail já verificado');
 
-        if (
-            user.emailVerificationToken &&
-            user.emailVerificationTokenExpiresAt &&
-            user.emailVerificationTokenExpiresAt > new Date()
-        ) {
-            const isTokenValid = await argon2.verify(
-                user.emailVerificationToken,
-                user.emailVerificationToken,
-            );
-            if (!isTokenValid)
-                throw new UnauthorizedException(
-                    'Token de verificação de e-mail inválido',
-                );
-        }
-
         await this.prisma.user.update({
             where: { id: userId },
-            data: { emailVerifiedAt: new Date() },
+            data: {
+                emailVerifiedAt: new Date(),
+                emailVerificationToken: null,
+                emailVerificationTokenExpiresAt: null,
+                emailVerificationTokenSentAt: null,
+            },
         });
     }
 
@@ -271,21 +339,14 @@ export class AuthService {
             user.emailVerificationTokenExpiresAt &&
             user.emailVerificationTokenExpiresAt < new Date()
         ) {
-            const { token, expiresAt, sentAt } =
-                await this.generateEmailVerificationToken(userId);
-            await this.prisma.user.update({
-                where: { id: userId },
-                data: {
-                    emailVerificationToken: token,
-                    emailVerificationTokenExpiresAt: expiresAt,
-                    emailVerificationTokenSentAt: sentAt,
-                },
+            const { token } = await this.generateEmailVerificationToken(userId);
+            await this.sendVerificationEmail({
+                email: user.email,
+                name: user.name,
+                token,
             });
-
-            // funcao de mandar email
             return { message: 'Token de verificação de e-mail reenviado' };
         } else {
-            // funcao de mandar email
             return { message: 'Token de verificação de e-mail já foi enviado' };
         }
     }
