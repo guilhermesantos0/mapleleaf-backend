@@ -124,24 +124,6 @@ export class AuthService {
         return { token, expiresAt, sentAt };
     }
 
-    private verificationEmailHtml(params: {
-        name?: string | null;
-        verificationUrl: string;
-        appName: string;
-    }): string {
-        const { name, verificationUrl, appName } = params;
-        const safeName = name?.trim() ? name.trim() : 'Olá';
-        return `
-<div style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5">
-  <h2>Confirme seu e-mail</h2>
-  <p>${safeName},</p>
-  <p>Para confirmar seu e-mail no <strong>${appName}</strong>, clique no link abaixo:</p>
-  <p><a href="${verificationUrl}" target="_blank" rel="noreferrer">${verificationUrl}</a></p>
-  <p>Esse link expira em 15 minutos.</p>
-</div>
-`.trim();
-    }
-
     private async sendVerificationEmail(params: {
         email: string;
         name?: string | null;
@@ -156,14 +138,17 @@ export class AuthService {
             params.email,
         )}&token=${encodeURIComponent(params.token)}`;
 
+        const greetingName = params.name?.trim() ? params.name.trim() : 'Olá';
+        const html = await this.mailService.renderTemplate('verify-email', {
+            greetingName,
+            appName,
+            verificationUrl,
+        });
+
         await this.mailService.sendEmail({
             to: params.email,
             subject: 'Confirme seu e-mail',
-            html: this.verificationEmailHtml({
-                name: params.name,
-                verificationUrl,
-                appName,
-            }),
+            html,
             text: `Confirme seu e-mail acessando: ${verificationUrl}`,
         });
     }

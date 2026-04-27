@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import * as Handlebars from 'handlebars';
+import type { TemplateDelegate } from 'handlebars';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 export type SendEmailInput = {
     to: string;
@@ -15,6 +19,8 @@ export class MailService {
     private readonly logger = new Logger(MailService.name);
     private readonly transporter: Transporter;
     private readonly from: string;
+    private readonly templatesDir = join(__dirname, 'templates');
+    private readonly templateCache = new Map<string, TemplateDelegate>();
 
     constructor(private readonly configService: ConfigService) {
         const host = this.configService.get<string>('SMTP_HOST');
@@ -47,15 +53,30 @@ export class MailService {
     async sendEmail(input: SendEmailInput): Promise<void> {
         const { to, subject, text, html } = input;
 
-        const mail = await this.transporter.sendMail({
+        await this.transporter.sendMail({
             from: this.from,
             to,
             subject,
             text,
             html,
         });
+    }
 
-        console.log(mail);
+    /**
+     * Renders `src/modules/mail/templates/{name}.hbs` (copied to `dist` via nest-cli assets).
+     */
+    async renderTemplate(
+        name: string,
+        context: Record<string, unknown>,
+    ): Promise<string> {
+        let compiled = this.templateCache.get(name);
+        if (!compiled) {
+            const filePath = join(this.templatesDir, `${name}.hbs`);
+            const source = await readFile(filePath, 'utf-8');
+            compiled = Handlebars.compile(source);
+            this.templateCache.set(name, compiled);
+        }
+        return compiled(context);
     }
 }
 
