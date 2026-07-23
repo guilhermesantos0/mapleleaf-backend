@@ -43,7 +43,7 @@ export class AddressesService {
         updateAddressDto: UpdateAddressDto,
         userId: string,
     ) {
-        const address = await this.prisma.address.findUnique({
+        const address = await this.prisma.address.findFirst({
             where: { id, userId },
         });
 
@@ -52,7 +52,7 @@ export class AddressesService {
         }
 
         return await this.prisma.address.update({
-            where: { id, userId },
+            where: { id },
             data: updateAddressDto,
         });
     }
@@ -62,7 +62,7 @@ export class AddressesService {
             where: { userId, isDefault: true },
         });
 
-        const newDefaultAddress = await this.prisma.address.findUnique({
+        const newDefaultAddress = await this.prisma.address.findFirst({
             where: { id, userId },
         });
 
@@ -77,7 +77,7 @@ export class AddressesService {
         }
 
         return await this.prisma.address.update({
-            where: { id, userId },
+            where: { id },
             data: { isDefault: true },
         });
     }

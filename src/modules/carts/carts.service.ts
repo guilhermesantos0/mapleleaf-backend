@@ -88,11 +88,12 @@ export class CartsService {
                 await this.prisma.cartItem.delete({
                     where: { id },
                 });
+            } else {
+                await this.prisma.cartItem.update({
+                    where: { id },
+                    data: { quantity: cartItem.quantity - quantity },
+                });
             }
-            await this.prisma.cartItem.update({
-                where: { id },
-                data: { quantity: cartItem.quantity - quantity },
-            });
         } else {
             await this.prisma.cartItem.delete({
                 where: { id },
@@ -166,6 +167,16 @@ export class CartsService {
                             select: {
                                 id: true,
                                 colorName: true,
+                                images: {
+                                    select: {
+                                        id: true,
+                                        url: true,
+                                        altText: true,
+                                        displayOrder: true,
+                                    },
+                                    orderBy: { displayOrder: 'asc' },
+                                    take: 1,
+                                },
                             },
                         },
                         product: {
@@ -173,6 +184,9 @@ export class CartsService {
                                 id: true,
                                 name: true,
                                 category: true,
+                                price: true,
+                                promotionPrice: true,
+                                isPromotion: true,
                             },
                         },
                     },

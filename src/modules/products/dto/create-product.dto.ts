@@ -2,6 +2,7 @@ import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
     IsArray,
     IsBoolean,
+    IsDate,
     IsEnum,
     IsNotEmpty,
     IsNumber,
@@ -12,6 +13,10 @@ import {
 import { ProductCategory, ProductSize } from '@prisma/client';
 
 export class CreateProductColorDto {
+    @IsOptional()
+    @IsString()
+    id?: string;
+
     @IsNotEmpty()
     @IsString()
     colorName: string;
@@ -65,6 +70,38 @@ export class CreateProductDto {
     @Transform(({ value }) => value === 'true' || value === true)
     @IsBoolean()
     isPromotion?: boolean;
+
+    @IsOptional()
+    @Transform(({ value }) => value === 'true' || value === true)
+    @IsBoolean()
+    isHighlighted?: boolean;
+
+    @IsOptional()
+    @Transform(({ value }: { value: unknown }) =>
+        value ? new Date(value as string | number | Date) : undefined,
+    )
+    @IsDate()
+    releaseDate?: Date;
+
+    @IsNotEmpty()
+    @Transform(({ value }) => Number(value))
+    @IsNumber()
+    defaultBoxWidth: number;
+
+    @IsNotEmpty()
+    @Transform(({ value }) => Number(value))
+    @IsNumber()
+    defaultBoxHeight: number;
+
+    @IsNotEmpty()
+    @Transform(({ value }) => Number(value))
+    @IsNumber()
+    defaultBoxLength: number;
+
+    @IsNotEmpty()
+    @Transform(({ value }) => Number(value))
+    @IsNumber()
+    defaultBoxWeight: number;
 
     @Transform(({ value }) => {
         const parsed = typeof value === 'string' ? JSON.parse(value) : value;

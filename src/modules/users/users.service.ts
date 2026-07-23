@@ -7,8 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from '../auth/dto/create-user.dto';
 import * as argon2 from 'argon2';
-import { UserRole } from '@prisma/client';
-import { CreateAddressDto } from './dto/create-address.dto';
+import { Prisma, User, UserRole } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -58,14 +57,24 @@ export class UsersService {
 
         if (!user) throw new NotFoundException('Usuário não encontrado');
 
+        const { password, ...rest } = updateUserDto;
+
+        const data: Prisma.UserUpdateInput = { ...rest };
+
+        // Re-aplica o hash argon2 quando a senha é alterada por este endpoint,
+        // para manter o mesmo formato do fluxo de criação/registro.
+        if (password) {
+            data.password = await argon2.hash(
+                password + process.env.PASSWORD_PEPPER,
+            );
+        }
+
         const updatedUser = await this.prisma.user.update({
             where: { id },
-            data: {
-                ...updateUserDto,
-            },
+            data,
         });
 
-        return updatedUser;
+        return this.toSafeUser(updatedUser);
     }
 
     async create(createUserDto: CreateUserDto) {
@@ -89,6 +98,22 @@ export class UsersService {
             },
         });
 
-        return user;
+        return this.toSafeUser(user);
+    }
+
+    // Monta o objeto de usuário sem campos sensíveis (senha e tokens de
+    // verificação) antes de retornar pela API administrativa.
+    private toSafeUser(user: User) {
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            cpf: user.cpf,
+            emailVerifiedAt: user.emailVerifiedAt,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
     }
 }

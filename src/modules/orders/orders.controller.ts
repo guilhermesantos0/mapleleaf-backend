@@ -1,6 +1,5 @@
 import {
     Controller,
-    Delete,
     Get,
     Param,
     Patch,
@@ -16,6 +15,8 @@ import { UserRole } from '@prisma/client';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/common/decorators/user.decorator';
 import { CheckoutDto } from './dto/checkout.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { FilterOrdersDto } from './dto/filter-orders.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -34,7 +35,7 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     @Get()
-    async getOrders(@Query() query: any) {
+    async getOrders(@Query() query: FilterOrdersDto) {
         return this.ordersService.getOrders(query);
     }
 
@@ -54,7 +55,7 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     @Patch(':id')
-    async updateOrder(@Param('id') id: string, @Body() body: any) {
+    async updateOrder(@Param('id') id: string, @Body() body: UpdateOrderDto) {
         return this.ordersService.updateOrder(id, body);
     }
 

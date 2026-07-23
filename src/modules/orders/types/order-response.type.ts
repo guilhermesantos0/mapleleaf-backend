@@ -13,6 +13,7 @@ type SelectedAddress = {
 };
 
 type SelectedOrder = {
+    id: string;
     orderNumber: string;
     status: OrderStatus;
     subtotal: any;
@@ -24,11 +25,27 @@ type SelectedOrder = {
     trackingCode: string | null;
 };
 
+type SelectedImage = {
+    id: string;
+    url: string;
+    altText: string | null;
+    displayOrder: number;
+};
+
 type SelectedCartItem = {
     id: string;
     quantity: number;
-    productColor: { id: string; colorName: string };
-    product: { id: string; name: string; category: ProductCategory };
+    productColor: {
+        id: string;
+        colorName: string;
+        images: SelectedImage[];
+    };
+    product: {
+        id: string;
+        name: string;
+        category: ProductCategory;
+        modelCode: string;
+    };
 };
 
 type SelectedUser = {

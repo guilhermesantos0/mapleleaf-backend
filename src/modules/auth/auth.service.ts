@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes } from 'crypto';
-import { User, UserRole } from '@prisma/client';
+import { Prisma, User, UserRole } from '@prisma/client';
 import { UserResponse } from './types/user_response.type';
 import { CreateUserDto } from './dto/create-user.dto';
 
@@ -133,10 +133,23 @@ export class AuthService {
             where: { userId: user.id },
         });
 
-        if (oldRefreshToken)
-            await this.prisma.refreshToken.delete({
-                where: { id: oldRefreshToken.id },
-            });
+        if (oldRefreshToken) {
+            try {
+                await this.prisma.refreshToken.delete({
+                    where: { id: oldRefreshToken.id },
+                });
+            } catch (error) {
+                // P2025: já foi deletado por um login/refresh concorrente para o
+                // mesmo usuário. O estado desejado (token antigo removido) já foi
+                // alcançado, então não é um erro real.
+                if (
+                    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+                    error.code !== 'P2025'
+                ) {
+                    throw error;
+                }
+            }
+        }
 
         const payload = { sub: user.id, email: user.email };
         const accessToken = await this.jwtService.signAsync(payload, {
@@ -164,6 +177,7 @@ export class AuthService {
                 password: hashedPassword,
                 role: UserRole.CLIENT,
                 name: createUserDto.name,
+                phone: createUserDto.phone,
             },
         });
 
@@ -207,9 +221,21 @@ export class AuthService {
 
         const user = await this.toResponseUserObject(token.user);
 
-        await this.prisma.refreshToken.delete({
-            where: { id: token.id },
-        });
+        try {
+            await this.prisma.refreshToken.delete({
+                where: { id: token.id },
+            });
+        } catch (error) {
+            // P2025: já foi deletado por uma requisição de refresh concorrente
+            // (ex.: duas abas, ou o retry-on-401 do frontend). O estado desejado
+            // (token antigo removido) já foi alcançado, então não é um erro real.
+            if (
+                !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+                error.code !== 'P2025'
+            ) {
+                throw error;
+            }
+        }
 
         const payload = { sub: user.id, email: user.email };
         const accessToken = await this.jwtService.signAsync(payload, {

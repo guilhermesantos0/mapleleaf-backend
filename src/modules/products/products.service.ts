@@ -28,18 +28,52 @@ export class ProductsService {
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     ) {}
 
-    async create(dto: CreateProductDto, files: Express.Multer.File[]) {
-        await fs.mkdir(UPLOADS_DIR, { recursive: true });
-
+    private groupFilesByColor(
+        files: Express.Multer.File[],
+    ): Map<number, Express.Multer.File[]> {
         const filesByColor = new Map<number, Express.Multer.File[]>();
         for (const file of files) {
-            const match = file.fieldname.match(/^colors\[(\d+)]\[images]$/);
+            const match = file.fieldname.match(/^colors\[(\d+)]\[images]\[]$/);
             if (!match) continue;
 
             const idx = parseInt(match[1], 10);
             if (!filesByColor.has(idx)) filesByColor.set(idx, []);
             filesByColor.get(idx)!.push(file);
         }
+        return filesByColor;
+    }
+
+    private async persistColorImages(
+        tx: Prisma.TransactionClient,
+        productColorId: string,
+        productName: string,
+        colorName: string,
+        files: Express.Multer.File[],
+        startOrder = 0,
+    ) {
+        for (let j = 0; j < files.length; j++) {
+            const file = files[j];
+            const ext = path.extname(file.originalname);
+            const filename = `${randomUUID()}${ext}`;
+            const filePath = path.join(UPLOADS_DIR, filename);
+
+            await fs.writeFile(filePath, file.buffer);
+
+            await tx.image.create({
+                data: {
+                    productColorId,
+                    url: `/uploads/products/${filename}`,
+                    altText: `${productName} - ${colorName}`,
+                    displayOrder: startOrder + j,
+                },
+            });
+        }
+    }
+
+    async create(dto: CreateProductDto, files: Express.Multer.File[]) {
+        await fs.mkdir(UPLOADS_DIR, { recursive: true });
+
+        const filesByColor = this.groupFilesByColor(files);
 
         const result = await this.prisma.$transaction(async (tx) => {
             const product = await tx.product.create({
@@ -53,6 +87,12 @@ export class ProductsService {
                     price: dto.price,
                     promotionPrice: dto.promotionPrice,
                     isPromotion: dto.isPromotion ?? false,
+                    isHighlighted: dto.isHighlighted ?? false,
+                    releaseDate: dto.releaseDate,
+                    defaultBoxWidth: dto.defaultBoxWidth,
+                    defaultBoxHeight: dto.defaultBoxHeight,
+                    defaultBoxLength: dto.defaultBoxLength,
+                    defaultBoxWeight: dto.defaultBoxWeight,
                     colors: {
                         create: dto.colors.map((color) => ({
                             colorName: color.colorName,
@@ -68,23 +108,13 @@ export class ProductsService {
                 const colorFiles = filesByColor.get(i) ?? [];
                 const productColor = product.colors[i];
 
-                for (let j = 0; j < colorFiles.length; j++) {
-                    const file = colorFiles[j];
-                    const ext = path.extname(file.originalname);
-                    const filename = `${randomUUID()}${ext}`;
-                    const filePath = path.join(UPLOADS_DIR, filename);
-
-                    await fs.writeFile(filePath, file.buffer);
-
-                    await tx.image.create({
-                        data: {
-                            productColorId: productColor.id,
-                            url: `/uploads/products/${filename}`,
-                            altText: `${product.name} - ${productColor.colorName}`,
-                            displayOrder: j,
-                        },
-                    });
-                }
+                await this.persistColorImages(
+                    tx,
+                    productColor.id,
+                    product.name,
+                    productColor.colorName,
+                    colorFiles,
+                );
             }
 
             return tx.product.findUnique({
@@ -171,7 +201,7 @@ export class ProductsService {
         if (isAdmin) {
             if (query.name)
                 where.name = { contains: query.name, mode: 'insensitive' };
-            if (query.size) where.size = query.size as any;
+            if (query.size) where.size = query.size;
 
             if (query.date) orderBy.createdAt = query.date;
             if (query.price) orderBy.price = query.price;
@@ -232,23 +262,101 @@ export class ProductsService {
         updateProductDto: UpdateProductDto,
         files: Express.Multer.File[],
     ) {
+        await fs.mkdir(UPLOADS_DIR, { recursive: true });
+
         const { colors, ...productData } = updateProductDto;
+        const filesByColor = this.groupFilesByColor(files);
 
         const result = await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.product.findUnique({
+                where: { id },
+                include: { colors: true },
+            });
+
+            if (!existing) {
+                throw new NotFoundException('Produto não encontrado');
+            }
+
             const product = await tx.product.update({
                 where: { id },
                 data: productData,
             });
 
-            for (const file of files) {
-                const ext = path.extname(file.originalname);
-                const filename = `${randomUUID()}${ext}`;
-                const filePath = path.join(UPLOADS_DIR, filename);
+            // Se `colors` não vier no payload, mantém as cores existentes intactas.
+            if (colors) {
+                const keptColorIds = new Set<string>();
 
-                await fs.writeFile(filePath, file.buffer);
+                for (let i = 0; i < colors.length; i++) {
+                    const color = colors[i];
+                    const colorFiles = filesByColor.get(i) ?? [];
+
+                    let productColorId: string;
+
+                    if (color.id) {
+                        // Cor existente: atualiza dados escalares.
+                        const updated = await tx.productColor.update({
+                            where: { id: color.id },
+                            data: {
+                                colorName: color.colorName,
+                                hexCode: color.hexCode,
+                                stockQuantity: color.stockQuantity ?? 0,
+                            },
+                        });
+                        productColorId = updated.id;
+                    } else {
+                        // Nova cor.
+                        const created = await tx.productColor.create({
+                            data: {
+                                productId: id,
+                                colorName: color.colorName,
+                                hexCode: color.hexCode,
+                                stockQuantity: color.stockQuantity ?? 0,
+                            },
+                        });
+                        productColorId = created.id;
+                    }
+
+                    keptColorIds.add(productColorId);
+
+                    if (colorFiles.length > 0) {
+                        const currentMax = await tx.image.aggregate({
+                            where: { productColorId },
+                            _max: { displayOrder: true },
+                        });
+                        const startOrder =
+                            (currentMax._max.displayOrder ?? -1) + 1;
+
+                        await this.persistColorImages(
+                            tx,
+                            productColorId,
+                            product.name,
+                            color.colorName,
+                            colorFiles,
+                            startOrder,
+                        );
+                    }
+                }
+
+                // Remove cores que não constam mais no payload (cascade remove imagens).
+                const toRemove = existing.colors
+                    .filter((c) => !keptColorIds.has(c.id))
+                    .map((c) => c.id);
+
+                if (toRemove.length > 0) {
+                    await tx.productColor.deleteMany({
+                        where: { id: { in: toRemove } },
+                    });
+                }
             }
 
-            return product;
+            return tx.product.findUnique({
+                where: { id },
+                include: {
+                    colors: {
+                        include: { images: true },
+                    },
+                },
+            });
         });
 
         await this.invalidateProductsCache(id);

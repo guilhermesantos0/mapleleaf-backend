@@ -34,7 +34,7 @@ async function main() {
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
 
-  const hashedPassword = await argon2.hash('Password123!MapleLeaf123456');
+  const hashedPassword = await argon2.hash('Mapleleaf123!' + process.env.PASSWORD_PEPPER);
 
   // ── Users (UserRole: ADMIN, EMPLOYEE, CLIENT) ────────────────────
 
@@ -577,7 +577,7 @@ async function main() {
 
   console.log('Carts created');
 
-  // ── Orders (OrderStatus: PENDING, PROCESSING, COMPLETED, CANCELLED)
+  // ── Orders (OrderStatus: PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED)
   // Order → OrderItem, Order → Address, Order → Cart, Order → User (completedBy)
 
   const order1 = await prisma.order.create({
@@ -585,7 +585,7 @@ async function main() {
       userId: client1.id,
       addressId: addr1.id,
       orderNumber: 'ORD-2026-0001',
-      status: OrderStatus.COMPLETED,
+      status: OrderStatus.DELIVERED,
       trackingCode: 'BR123456789ML',
       subtotal: 599.8,
       shippingCost: 25.0,
@@ -615,7 +615,7 @@ async function main() {
       addressId: addr3.id,
       cartId: checkedOutCart.id,
       orderNumber: 'ORD-2026-0002',
-      status: OrderStatus.PROCESSING,
+      status: OrderStatus.SHIPPED,
       trackingCode: 'BR987654321ML',
       subtotal: 549.8,
       shippingCost: 30.0,

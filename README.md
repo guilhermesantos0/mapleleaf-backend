@@ -1,98 +1,166 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Maple Leaf — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API do e-commerce **Maple Leaf** (bolsas, carteiras e mochilas), construída com **NestJS**, **Prisma** (PostgreSQL) e **Redis**. Integra os gateways **Mercado Pago** (pagamentos via cartão e Pix) e **Melhor Envio** (cotação e emissão de frete).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+- **[NestJS 11](https://nestjs.com/)** (Express) — framework HTTP
+- **[Prisma 7](https://www.prisma.io/)** — ORM sobre **PostgreSQL**
+- **Redis** (via `@keyv/redis` + `@nestjs/cache-manager`) — cache de leitura (produtos, sessão do usuário)
+- **Passport JWT** — autenticação via cookies HTTPOnly (`access_token` + `refresh_token`)
+- **Argon2** — hash de senhas
+- **Mercado Pago SDK** — pagamentos (cartão e Pix) e webhooks
+- **Melhor Envio** (HTTP via `@nestjs/axios`) — cálculo de frete e geração de etiquetas
+- **class-validator** / **class-transformer** — validação e transformação de DTOs
+- **Jest** — testes unitários e e2e
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Pré-requisitos
 
-## Project setup
+- Node.js 20+
+- Docker (para subir o PostgreSQL local via `docker-compose.yml`) ou uma instância PostgreSQL própria
+- Um Redis acessível (local ou remoto)
 
-```bash
-$ npm install
-```
+## Configuração do ambiente
 
-## Compile and run the project
+1. Copie o arquivo de exemplo e preencha os valores:
 
-```bash
-# development
-$ npm run start
+   ```bash
+   cp .env.example .env
+   ```
 
-# watch mode
-$ npm run start:dev
+2. Principais variáveis (veja `.env.example` para a lista completa):
 
-# production mode
-$ npm run start:prod
-```
+   | Variável | Descrição |
+   |---|---|
+   | `PORT` | Porta HTTP do servidor (padrão `3000`) |
+   | `DATABASE_URL` | String de conexão do PostgreSQL |
+   | `FRONTEND_URL` | Origem liberada no CORS e usada nos `back_urls` do Mercado Pago |
+   | `BACKEND_URL` | Base usada para montar a `notification_url` dos webhooks |
+   | `REDIS_URL` / `CACHE_TTL_MS` | Conexão Redis e TTL padrão do cache |
+   | `PASSWORD_PEPPER` | Pimenta aplicada às senhas antes do hash Argon2 |
+   | `JWT_SECRET` | Chave de assinatura do `access_token` |
+   | `MERCADOPAGO_ACCESS_TOKEN` / `MERCADOPAGO_WEBHOOK_SECRET` | Credenciais do Mercado Pago |
+   | `MELHOR_ENVIO_TOKEN` / `MELHOR_ENVIO_API_URL` / `MELHOR_ENVIO_FROM_ZIPCODE` | Credenciais e configuração do Melhor Envio |
 
-## Run tests
+3. Suba um PostgreSQL local com Docker Compose (porta `5433` no host):
 
-```bash
-# unit tests
-$ npm run test
+   ```bash
+   docker compose up -d
+   ```
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Instalação
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm install
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Banco de dados (Prisma)
 
-## Resources
+```bash
+# Gera o client do Prisma a partir do schema
+npm run prisma:generate
 
-Check out a few resources that may come in handy when working with NestJS:
+# Cria e aplica migrations em desenvolvimento
+npm run prisma:migrate
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Aplica migrations existentes (produção/CI)
+npm run prisma:migrate:deploy
 
-## Support
+# Popula o banco com dados de exemplo (usuários, produtos, etc.)
+npm run prisma:seed
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Abre o Prisma Studio (GUI do banco) em http://localhost:5555
+npm run prisma:studio
+```
 
-## Stay in touch
+> Guia detalhado de setup e troubleshooting do banco: [`PRISMA_SETUP.md`](PRISMA_SETUP.md).
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Executando a aplicação
 
-## License
+```bash
+# desenvolvimento
+npm run start
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# desenvolvimento com watch mode (recarrega ao salvar)
+npm run start:dev
+
+# debug com watch mode
+npm run start:debug
+
+# build de produção
+npm run build
+
+# executa o build de produção
+npm run start:prod
+```
+
+A API sobe com prefixo global `/api` (ex.: `http://localhost:3000/api/auth/login`). CORS é restrito à origem definida em `FRONTEND_URL`, com suporte a cookies (`credentials: true`).
+
+## Testes
+
+```bash
+# testes unitários
+npm run test
+
+# testes unitários em modo watch
+npm run test:watch
+
+# cobertura de testes
+npm run test:cov
+
+# testes e2e
+npm run test:e2e
+```
+
+## Lint e formatação
+
+```bash
+npm run lint
+npm run format
+```
+
+## Estrutura do projeto
+
+```
+src/
+├── main.ts                    # Bootstrap: prefixo /api, CORS, ValidationPipe, cookie-parser
+├── app.module.ts               # Módulo raiz — importa todos os módulos de domínio
+├── config/                     # Configuração global (ex.: RedisCacheModule)
+├── common/                     # Guards, decorators e utilitários compartilhados
+├── modules/
+│   ├── auth/                   # Login, registro, refresh token, verificação de e-mail
+│   ├── users/                  # CRUD de usuários (ADMIN)
+│   ├── addresses/               # Endereços do usuário autenticado
+│   ├── products/                # Catálogo de produtos + upload de imagens
+│   ├── carts/                   # Carrinho de compras e cotação de frete
+│   ├── orders/                  # Checkout e gestão de pedidos
+│   ├── payments/                 # Criação de pagamentos (cartão/Pix)
+│   └── prisma/                   # PrismaService (conexão com o banco)
+└── integrations/
+    ├── payment/                  # Integração com Mercado Pago + endpoint de webhook
+    └── shipping/                  # Integração com Melhor Envio (frete)
+
+prisma/
+├── schema.prisma                # Modelo de dados
+├── migrations/                   # Histórico de migrations
+└── seed.ts                       # Script de seed
+```
+
+## Documentação da API
+
+A referência completa de endpoints (autenticação, produtos, carrinho, pedidos, pagamentos, webhooks, modelo de dados e variáveis de ambiente) está em [`api_doc.md`](api_doc.md).
+
+Há também uma documentação complementar voltada à integração com o front-end em [`DOCUMENTACAO.md`](DOCUMENTACAO.md), com exemplos de payloads e fluxos recomendados (autenticação, checkout, pagamento).
+
+## Autenticação
+
+A API autentica via **cookies HTTPOnly**, não via header `Authorization`:
+
+- `access_token` — JWT de curta duração (15 min)
+- `refresh_token` — token opaco de longa duração (7 dias), usado apenas em `POST /auth/refresh`
+
+O client HTTP do front-end deve enviar credenciais em todas as requisições (`credentials: 'include'` no `fetch`, ou `withCredentials: true` no Axios).
+
+## Uploads de produtos
+
+Imagens de produtos são enviadas via `multipart/form-data` e persistidas em `uploads/products/`, sendo referenciadas por URL relativa (`/uploads/products/<arquivo>`). Em produção, garanta que esse diretório seja servido estaticamente (reverse proxy, CDN ou configuração adicional do Nest) e, idealmente, persistido fora do container da aplicação.

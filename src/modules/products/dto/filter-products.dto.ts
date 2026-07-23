@@ -1,5 +1,6 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
-import { ProductCategory } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { ProductCategory, ProductSize } from '@prisma/client';
 
 export class FilterProductsDto {
     @IsOptional()
@@ -19,14 +20,18 @@ export class FilterProductsDto {
     price?: 'asc' | 'desc';
 
     @IsOptional()
-    @IsString()
-    size?: 'asc' | 'desc';
+    @IsEnum(ProductSize)
+    size?: ProductSize;
 
     @IsOptional()
-    @IsNumber()
+    @Transform(({ value }) => Number(value))
+    @IsInt()
+    @Min(1)
     page?: number;
 
     @IsOptional()
-    @IsNumber()
+    @Transform(({ value }) => Number(value))
+    @IsInt()
+    @Min(1)
     limit?: number;
 }

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsBoolean, Matches } from 'class-validator';
+import {
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsBoolean,
+    Matches,
+} from 'class-validator';
 
 export class CreateAddressDto {
     @IsString()
@@ -28,9 +34,9 @@ export class CreateAddressDto {
     })
     zipCode: string;
 
+    @IsOptional()
     @IsString()
-    @IsNotEmpty({ message: 'Complemento é obrigatório' })
-    complement: string;
+    complement?: string;
 
     @IsString()
     @IsNotEmpty({ message: 'País é obrigatório' })

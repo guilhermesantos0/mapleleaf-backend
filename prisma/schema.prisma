@@ -14,8 +14,9 @@ enum UserRole {
 
 enum OrderStatus {
   PENDING
-  PROCESSING
-  COMPLETED
+  CONFIRMED
+  SHIPPED
+  DELIVERED
   CANCELLED
 }
 
@@ -114,8 +115,10 @@ model Product {
   description    String          @db.Text
   material       String
   isPromotion    Boolean         @default(false)
+  isHighlighted  Boolean         @default(false)
   price          Decimal         @db.Decimal(10, 2)
   promotionPrice Decimal?        @db.Decimal(10, 2)
+  releaseDate    DateTime?
 
   colors          ProductColor[]
   size            ProductSize

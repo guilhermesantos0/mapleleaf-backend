@@ -5,9 +5,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderObjectResponse } from './types/order-response.type';
-import { CartStatus, OrderStatus, PaymentStatus } from '@prisma/client';
+import { CartStatus, OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { sumBy } from 'lodash';
 import { ShippingService } from 'src/integrations/shipping/shipping.service';
+import { FilterOrdersDto } from './dto/filter-orders.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 
 type AdminGetOrdersResponse = {
     data: OrderObjectResponse[];
@@ -23,14 +25,47 @@ export class OrdersService {
         private readonly shippingService: ShippingService,
     ) {}
 
-    async getOrders(filters: any): Promise<AdminGetOrdersResponse> {
-        const { page = 1, limit = 20, ...rest } = filters;
+    private buildOrdersWhere(filters: FilterOrdersDto): Prisma.CartWhereInput {
+        const where: Prisma.CartWhereInput = {
+            status: CartStatus.CHECKED_OUT,
+        };
+
+        if (filters.customerName) {
+            where.user = {
+                name: { contains: filters.customerName, mode: 'insensitive' },
+            };
+        }
+
+        if (filters.status) {
+            where.orders = { some: { status: filters.status } };
+        }
+
+        if (filters.startDate || filters.endDate) {
+            const createdAt: Prisma.DateTimeFilter = {};
+            if (filters.startDate) createdAt.gte = new Date(filters.startDate);
+            if (filters.endDate) {
+                // Inclui o dia inteiro da data final.
+                const end = new Date(filters.endDate);
+                end.setHours(23, 59, 59, 999);
+                createdAt.lte = end;
+            }
+            where.createdAt = createdAt;
+        }
+
+        return where;
+    }
+
+    async getOrders(filters: FilterOrdersDto): Promise<AdminGetOrdersResponse> {
+        const page = Number(filters.page) || 1;
+        const limit = Number(filters.limit) || 20;
         const skip = (page - 1) * limit;
+
+        const where = this.buildOrdersWhere(filters);
 
         const carts = await this.prisma.cart.findMany({
             skip,
             take: limit,
-            where: rest,
+            where,
             orderBy: {
                 createdAt: 'desc',
             },
@@ -54,6 +89,14 @@ export class OrdersService {
                             select: {
                                 id: true,
                                 colorName: true,
+                                images: {
+                                    select: {
+                                        id: true,
+                                        url: true,
+                                        altText: true,
+                                        displayOrder: true,
+                                    },
+                                },
                             },
                         },
                         product: {
@@ -61,12 +104,14 @@ export class OrdersService {
                                 id: true,
                                 name: true,
                                 category: true,
+                                modelCode: true,
                             },
                         },
                     },
                 },
                 orders: {
                     select: {
+                        id: true,
                         orderNumber: true,
                         status: true,
                         subtotal: true,
@@ -94,7 +139,7 @@ export class OrdersService {
         });
 
         const total = await this.prisma.cart.count({
-            where: rest,
+            where,
         });
 
         return {
@@ -106,8 +151,8 @@ export class OrdersService {
                 cartItems: cart.items,
                 user: cart.user,
             })),
-            currentPage: Number(page),
-            lastPage: Math.ceil(total / Number(limit)),
+            currentPage: page,
+            lastPage: Math.ceil(total / limit),
             total,
         };
     }
@@ -139,6 +184,14 @@ export class OrdersService {
                             select: {
                                 id: true,
                                 colorName: true,
+                                images: {
+                                    select: {
+                                        id: true,
+                                        url: true,
+                                        altText: true,
+                                        displayOrder: true,
+                                    },
+                                },
                             },
                         },
                         product: {
@@ -146,12 +199,14 @@ export class OrdersService {
                                 id: true,
                                 name: true,
                                 category: true,
+                                modelCode: true,
                             },
                         },
                     },
                 },
                 orders: {
                     select: {
+                        id: true,
                         orderNumber: true,
                         status: true,
                         subtotal: true,
@@ -192,26 +247,37 @@ export class OrdersService {
         };
     }
 
-    async updateOrder(id: string, body: any): Promise<any> {
-        const order = await this.prisma.order.update({
+    async updateOrder(id: string, body: UpdateOrderDto) {
+        const existing = await this.prisma.order.findUnique({
             where: { id },
-            data: body,
         });
 
-        if (!order) {
+        if (!existing) {
             throw new NotFoundException('Pedido não encontrado');
         }
 
-        return order;
+        return this.prisma.order.update({
+            where: { id },
+            data: {
+                trackingCode: body.trackingCode,
+                status: body.status,
+            },
+        });
     }
 
     async cancelOrder(id: string): Promise<any> {
-        const order = await this.prisma.order.update({
+        const existing = await this.prisma.order.findUnique({
+            where: { id },
+        });
+
+        if (!existing) {
+            throw new NotFoundException('Pedido não encontrado');
+        }
+
+        return this.prisma.order.update({
             where: { id },
             data: { status: OrderStatus.CANCELLED },
         });
-
-        return order;
     }
 
     async checkout(
